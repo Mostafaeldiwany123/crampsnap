@@ -110,7 +110,7 @@ export default function CollectionDetailScreen() {
 
         <TouchableOpacity
           style={styles.cameraBtn}
-          onPress={() => router.push('/(tabs)/scan')}
+          onPress={() => router.push('/(tabs)')}
         >
           <Camera size={22} color="#111827" weight="regular" />
         </TouchableOpacity>
@@ -137,7 +137,7 @@ export default function CollectionDetailScreen() {
             <Text style={styles.emptyText}>No Photos in this Subject</Text>
             <TouchableOpacity
               style={styles.emptyBtn}
-              onPress={() => router.push('/(tabs)/scan')}
+              onPress={() => router.push('/(tabs)')}
             >
               <Text style={styles.emptyBtnText}>Open Camera</Text>
             </TouchableOpacity>

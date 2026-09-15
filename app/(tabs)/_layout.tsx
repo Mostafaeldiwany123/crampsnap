@@ -28,7 +28,7 @@ export const MaterialTopTabs = withLayoutContext<
 
 function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
   const currentRouteName = state.routes[state.index]?.name;
-  const isCameraActive = currentRouteName === 'scan';
+  const isCameraActive = currentRouteName === 'index' || currentRouteName === 'scan';
   const shutterAnim = useRef(new Animated.Value(1)).current;
   const [latestPhotoUri, setLatestPhotoUri] = useState<string | null>(null);
 
@@ -67,7 +67,7 @@ function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
 
     if (!isCameraActive) {
       // If not currently on the Camera tab, go to the Camera tab
-      navigation.navigate('scan');
+      navigation.navigate('index');
     } else {
       // If already on the Camera tab, take the image!
       DeviceEventEmitter.emit('TRIGGER_CAPTURE_PHOTO');
@@ -160,7 +160,7 @@ export default function TabLayout() {
   return (
     <MaterialTopTabs
       tabBarPosition="bottom"
-      initialRouteName="scan"
+      initialRouteName="index"
       tabBar={(props) => <CustomConcentricTabBar {...props} />}
       screenOptions={{
         tabBarShowLabel: false,
@@ -168,10 +168,10 @@ export default function TabLayout() {
       }}
     >
       <MaterialTopTabs.Screen name="library" />
-      <MaterialTopTabs.Screen name="scan" />
+      <MaterialTopTabs.Screen name="index" />
       <MaterialTopTabs.Screen name="profile" />
       <MaterialTopTabs.Screen
-        name="index"
+        name="scan"
         options={{
           tabBarItemStyle: { display: 'none' },
         }}

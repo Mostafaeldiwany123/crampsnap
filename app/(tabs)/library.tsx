@@ -280,7 +280,7 @@ export default function LibraryScreen() {
             </Text>
             <TouchableOpacity
               style={styles.emptyActionBtn}
-              onPress={() => router.push('/(tabs)/scan')}
+              onPress={() => router.push('/(tabs)')}
               activeOpacity={0.8}
             >
               <Camera size={18} color="#FFFFFF" weight="bold" />
