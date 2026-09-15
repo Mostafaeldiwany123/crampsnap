@@ -1,11 +1,21 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { withLayoutContext } from 'expo-router';
 import {
   createMaterialTopTabNavigator,
   MaterialTopTabNavigationOptions,
 } from '@react-navigation/material-top-tabs';
-import { View, Platform, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { Camera, Images, User } from 'phosphor-react-native';
+import {
+  View,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  Animated,
+  DeviceEventEmitter,
+  Image,
+} from 'react-native';
+import { Images, User } from 'phosphor-react-native';
+import { getNotes, DEFAULT_NOTES } from '@/services/notes';
 
 const { Navigator } = createMaterialTopTabNavigator();
 
@@ -16,66 +26,131 @@ export const MaterialTopTabs = withLayoutContext<
   any
 >(Navigator);
 
-interface TabBarConfig {
-  label: string;
-  Icon: React.ComponentType<any>;
-}
+function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
+  const currentRouteName = state.routes[state.index]?.name;
+  const isCameraActive = currentRouteName === 'scan';
+  const shutterAnim = useRef(new Animated.Value(1)).current;
+  const [latestPhotoUri, setLatestPhotoUri] = useState<string | null>(null);
 
-const TAB_CONFIG: Record<string, TabBarConfig> = {
-  scan: { label: 'Camera', Icon: Camera },
-  library: { label: 'Photos', Icon: Images },
-  profile: { label: 'Profile', Icon: User },
-};
+  const fetchLatestPhoto = async () => {
+    try {
+      const notes = await getNotes();
+      const withImage = (notes && notes.length > 0 ? notes : DEFAULT_NOTES).find((n) => !!n.image_url);
+      if (withImage?.image_url) {
+        setLatestPhotoUri(withImage.image_url);
+      }
+    } catch (e) {
+      if (DEFAULT_NOTES[0]?.image_url) {
+        setLatestPhotoUri(DEFAULT_NOTES[0].image_url);
+      }
+    }
+  };
 
-function FloatingBottomTabBar({ state, descriptors, navigation }: any) {
+  useEffect(() => {
+    fetchLatestPhoto();
+    const sub = DeviceEventEmitter.addListener('PHOTO_SAVED', (event?: any) => {
+      if (event?.uri) {
+        setLatestPhotoUri(event.uri);
+      } else {
+        fetchLatestPhoto();
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  const handleCenterButtonPress = () => {
+    // Tactile micro-spring scale feedback (NO border changes)
+    Animated.sequence([
+      Animated.timing(shutterAnim, { toValue: 0.88, duration: 70, useNativeDriver: true }),
+      Animated.spring(shutterAnim, { toValue: 1, friction: 4, tension: 70, useNativeDriver: true }),
+    ]).start();
+
+    if (!isCameraActive) {
+      // If not currently on the Camera tab, go to the Camera tab
+      navigation.navigate('scan');
+    } else {
+      // If already on the Camera tab, take the image!
+      DeviceEventEmitter.emit('TRIGGER_CAPTURE_PHOTO');
+    }
+  };
+
   return (
-    <View style={tabStyles.floatingWrapper} pointerEvents="box-none">
-      <View style={tabStyles.pillBar}>
-        {state.routes.map((route: any, index: number) => {
-          const config = TAB_CONFIG[route.name];
-          if (!config) return null; // Hide routes like 'index'
+    <View style={styles.tabBarWrapper} pointerEvents="box-none">
+      {/* ─── ELEVATED SHUTTER BUTTON (Solid filled, no transparency, white inner disc) ─── */}
+      <View style={styles.centerButtonWrapper} pointerEvents="box-none">
+        <TouchableOpacity
+          onPress={handleCenterButtonPress}
+          activeOpacity={0.88}
+          style={styles.centerTouchable}
+        >
+          <Animated.View
+            style={[
+              styles.centerOuterRing,
+              { transform: [{ scale: shutterAnim }] },
+            ]}
+          >
+            {/* Solid White Inner Disc */}
+            <View style={styles.centerInnerDot} />
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
 
-          const isFocused = state.index === index;
-          const { label, Icon } = config;
-
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          return (
-            <TouchableOpacity
-              key={route.key}
-              onPress={onPress}
+      {/* ─── BOTTOM NAVIGATION BAR (Light Theme: Clean White & Slate) ─── */}
+      <View style={styles.tabBar}>
+        {/* Left Tab: Photos Preview (Big enough to see photo clearly, with empty state) */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => navigation.navigate('library')}
+          activeOpacity={0.75}
+        >
+          {latestPhotoUri ? (
+            <View
               style={[
-                tabStyles.tabItem,
-                isFocused && tabStyles.tabItemActive,
+                styles.photoThumbWrapper,
+                currentRouteName === 'library' && styles.photoThumbWrapperActive,
               ]}
-              activeOpacity={0.75}
             >
-              <Icon
-                size={20}
-                color={isFocused ? '#111827' : '#94A3B8'}
-                weight={isFocused ? 'fill' : 'regular'}
+              <Image source={{ uri: latestPhotoUri }} style={styles.photoThumbImage} />
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.photoThumbEmpty,
+                currentRouteName === 'library' && styles.photoThumbWrapperActive,
+              ]}
+            >
+              <Images
+                size={22}
+                color={currentRouteName === 'library' ? '#0F172A' : '#94A3B8'}
+                weight={currentRouteName === 'library' ? 'fill' : 'regular'}
               />
-              <Text
-                style={[
-                  tabStyles.tabLabel,
-                  isFocused && tabStyles.tabLabelActive,
-                ]}
-              >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Center Spacer for the bigger elevated center shutter button */}
+        <View style={styles.centerSpacer} />
+
+        {/* Right Tab: Profile */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => navigation.navigate('profile')}
+          activeOpacity={0.75}
+        >
+          <User
+            size={24}
+            color={currentRouteName === 'profile' ? '#0F172A' : '#64748B'}
+            weight={currentRouteName === 'profile' ? 'fill' : 'regular'}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              currentRouteName === 'profile' && styles.tabLabelActive,
+            ]}
+          >
+            Profile
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -86,14 +161,14 @@ export default function TabLayout() {
     <MaterialTopTabs
       tabBarPosition="bottom"
       initialRouteName="scan"
-      tabBar={(props) => <FloatingBottomTabBar {...props} />}
+      tabBar={(props) => <CustomConcentricTabBar {...props} />}
       screenOptions={{
         tabBarShowLabel: false,
         tabBarIndicatorStyle: { height: 0, backgroundColor: 'transparent' },
       }}
     >
-      <MaterialTopTabs.Screen name="scan" />
       <MaterialTopTabs.Screen name="library" />
+      <MaterialTopTabs.Screen name="scan" />
       <MaterialTopTabs.Screen name="profile" />
       <MaterialTopTabs.Screen
         name="index"
@@ -105,54 +180,119 @@ export default function TabLayout() {
   );
 }
 
-const tabStyles = StyleSheet.create({
-  floatingWrapper: {
+const styles = StyleSheet.create({
+  tabBarWrapper: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
+    bottom: 0,
     left: 0,
     right: 0,
     alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 999,
   },
-  pillBar: {
-    flexDirection: 'row',
+  centerButtonWrapper: {
+    position: 'absolute',
+    top: -28,
+    zIndex: 1000,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 36,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    gap: 4,
-    shadowColor: '#000000',
+  },
+  centerTouchable: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerOuterRing: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: '#0F172A',
+    borderWidth: 2,
+    borderColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 9,
+  },
+  centerInnerDot: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FFFFFF',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF', // Clean Light Theme White
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    width: '100%',
+    height: Platform.OS === 'ios' ? 80 : 66,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+    paddingHorizontal: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 4,
   },
   tabItem: {
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    backgroundColor: 'transparent',
+    gap: 3,
+    paddingVertical: 6,
   },
-  tabItemActive: {
-    backgroundColor: '#F3F4F6',
+  centerSpacer: {
+    width: 86,
+  },
+  photoThumbWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  photoThumbWrapperActive: {
+    borderColor: '#0F172A',
+    borderWidth: 2.5,
+  },
+  photoThumbEmpty: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoThumbImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   tabLabel: {
-    fontSize: 13,
-    fontFamily: 'PTSans',
-    color: '#94A3B8',
+    fontSize: 11,
+    fontFamily: 'Assistant',
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
   },
   tabLabelActive: {
-    fontFamily: 'PTSansBold',
+    color: '#0F172A',
     fontWeight: '700',
-    color: '#111827',
   },
 });

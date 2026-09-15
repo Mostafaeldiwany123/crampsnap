@@ -172,12 +172,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: 'PTSansBold',
+    fontFamily: 'AssistantBold',
     color: '#111827',
   },
   headerSub: {
     fontSize: 12,
-    fontFamily: 'PTSans',
+    fontFamily: 'Assistant',
     color: '#6B7280',
     marginTop: 2,
   },
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: 'PTSansBold',
+    fontFamily: 'AssistantBold',
     color: '#6B7280',
     marginBottom: 16,
   },
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: {
     color: '#FFFFFF',
-    fontFamily: 'PTSansBold',
+    fontFamily: 'AssistantBold',
     fontSize: 13,
   },
 });

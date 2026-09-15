@@ -132,13 +132,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontFamily: 'PTSansBold',
+    fontFamily: 'AssistantBold',
     color: '#111827',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 13,
-    fontFamily: 'PTSans',
+    fontFamily: 'Assistant',
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 19,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   googleButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontFamily: 'PTSansBold',
+    fontFamily: 'AssistantBold',
   },
   guestButton: {
     marginTop: 14,
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   guestButtonText: {
     color: '#6B7280',
     fontSize: 14,
-    fontFamily: 'PTSans',
+    fontFamily: 'Assistant',
   },
   disabledButton: {
     opacity: 0.7,

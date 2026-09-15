@@ -1,7 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   Image,
   Modal,
@@ -22,16 +23,16 @@ import {
   FilePdf,
   Copy,
   Check,
-  CalendarBlank,
-  Sparkle,
   ArrowsOut,
   X,
+  CaretRight,
+  CheckCircle,
 } from 'phosphor-react-native';
 import { deleteNote, getCategories, getNote } from '@/services/notes';
 import { trackUsage } from '@/services/usage';
 import { Category, Note } from '@/types';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function NotePreviewScreen() {
   const { content, id } = useLocalSearchParams<{ content: string; id: string }>();
@@ -43,6 +44,11 @@ export default function NotePreviewScreen() {
   const [fullscreenImage, setFullscreenImage] = useState(false);
   const [note, setNote] = useState<Note | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
+
+  // Entrance animations
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const imageFadeAnim = useRef(new Animated.Value(0.5)).current;
 
   const loadNote = async () => {
     if (id) {
@@ -72,6 +78,29 @@ export default function NotePreviewScreen() {
       loadNote();
     }, [id])
   );
+
+  useEffect(() => {
+    if (!loading) {
+      Animated.parallel([
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 6,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 240,
+          useNativeDriver: true,
+        }),
+        Animated.timing(imageFadeAnim, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [loading]);
 
   const displayContent = note?.content || content || '';
   const isSaved = !!note || !!id;
@@ -122,7 +151,7 @@ export default function NotePreviewScreen() {
 
   const handleDelete = () => {
     if (!note?.id) return;
-    Alert.alert('Delete Photo', 'Remove this note and photo from your vault?', [
+    Alert.alert('Delete Photo', 'Remove this note and photo from your study vault?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -154,158 +183,205 @@ export default function NotePreviewScreen() {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0F172A" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* ─── TOP ACTION BAR ─── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.circleBtn}
-          activeOpacity={0.7}
-        >
-          <CaretLeft size={20} color="#111827" weight="bold" />
-        </TouchableOpacity>
+      {/* ─── TOP HERO IMAGE (Fixed 35% Height - Fits Screen) ─── */}
+      <View style={styles.heroContainer}>
+        {note?.image_url ? (
+          <Animated.Image
+            source={{ uri: note.image_url }}
+            style={[styles.heroImage, { opacity: imageFadeAnim }]}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.heroPlaceholder} />
+        )}
 
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {note?.title || 'Photo Details'}
-        </Text>
-
-        <View style={styles.headerActions}>
+        {/* Top Navigation Overlay Buttons */}
+        <View style={styles.heroTopBar}>
           <TouchableOpacity
-            onPress={handleExportPDF}
-            style={styles.circleBtn}
-            disabled={exporting}
-            activeOpacity={0.7}
+            onPress={() => router.back()}
+            style={styles.frostedBtn}
+            activeOpacity={0.8}
           >
-            {exporting ? (
-              <ActivityIndicator size="small" color="#111827" />
-            ) : (
-              <ShareNetwork size={19} color="#111827" weight="regular" />
-            )}
+            <CaretLeft size={22} color="#FFFFFF" weight="bold" />
           </TouchableOpacity>
 
-          {isSaved && (
+          {note?.image_url && (
             <TouchableOpacity
-              onPress={handleDelete}
-              style={[styles.circleBtn, styles.deleteBtn]}
-              disabled={deleting}
-              activeOpacity={0.7}
+              onPress={() => setFullscreenImage(true)}
+              style={styles.frostedBtn}
+              activeOpacity={0.8}
             >
-              <Trash size={19} color="#EF4444" weight="regular" />
+              <ArrowsOut size={18} color="#FFFFFF" weight="bold" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* ─── BODY CONTENT ─── */}
-      {loading ? (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color="#111827" />
+      {/* ─── SLIDE-UP DETAIL CARD (Fits viewport cleanly without page scroll) ─── */}
+      <Animated.View
+        style={[
+          styles.detailCard,
+          {
+            transform: [{ translateY: slideAnim }],
+            opacity: opacityAnim,
+          },
+        ]}
+      >
+        {/* Pull Handle */}
+        <View style={styles.handleBar} />
+
+        {/* 1. Header: Avatar/Thumbnail + Title + Subject Pill */}
+        <View style={styles.cardHeader}>
+          <View style={styles.avatarThumbnailWrapper}>
+            {note?.image_url ? (
+              <Image source={{ uri: note.image_url }} style={styles.avatarThumbnail} />
+            ) : (
+              <View
+                style={[
+                  styles.avatarFallback,
+                  { backgroundColor: category?.color || '#0F172A' },
+                ]}
+              />
+            )}
+          </View>
+
+          <View style={styles.headerInfo}>
+            <Text style={styles.itemTitle} numberOfLines={1}>
+              {note?.title || 'Classroom Capture'}
+            </Text>
+
+            {category && (
+              <View style={styles.subjectPill}>
+                <Text style={styles.subjectPillText}>{category.name}</Text>
+              </View>
+            )}
+          </View>
         </View>
-      ) : (
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* PHOTO CARD */}
-          {note?.image_url && (
-            <View style={styles.photoCard}>
-              <Image source={{ uri: note.image_url }} style={styles.photoImg} />
 
-              <TouchableOpacity
-                style={styles.expandBadge}
-                onPress={() => setFullscreenImage(true)}
-                activeOpacity={0.85}
-              >
-                <ArrowsOut size={14} color="#FFFFFF" weight="bold" />
-                <Text style={styles.expandText}>Expand</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+        <View style={styles.divider} />
 
-          {/* DETAILS & TITLE */}
-          <View style={styles.titleSection}>
-            <Text style={styles.noteTitle}>{note?.title || 'Lecture Capture'}</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              {category && (
-                <View style={[styles.pillBadge, { backgroundColor: '#F3F4F6' }]}>
-                  <View
-                    style={[
-                      styles.colorDot,
-                      { backgroundColor: category.color || '#10B981' },
-                    ]}
-                  />
-                  <Text style={styles.pillText}>{category.name}</Text>
-                </View>
-              )}
-
-              <View style={[styles.pillBadge, { backgroundColor: '#F8FAFC' }]}>
-                <CalendarBlank size={13} color="#64748B" weight="regular" />
-                <Text style={styles.dateText}>
-                  {new Date(note?.created_at || Date.now()).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </Text>
-              </View>
-
-              <View style={[styles.pillBadge, { backgroundColor: '#ECFDF5' }]}>
-                <Sparkle size={12} color="#059669" weight="fill" />
-                <Text style={[styles.pillText, { color: '#059669' }]}>AI Extracted</Text>
-              </View>
-            </View>
+        {/* 2. Status & Quick Actions Row */}
+        <View style={styles.statusAndActionsRow}>
+          <View style={styles.statusMetaCol}>
+            <Text style={styles.metaLabel}>VAULT STATUS</Text>
+            <Text style={styles.metaValue}>Digitized &bull; {new Date(note?.created_at || Date.now()).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+            })}</Text>
           </View>
 
-          {/* EXTRACTED NOTES CARD */}
-          <View style={styles.contentSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeading}>Extracted Notes</Text>
-
-              <TouchableOpacity
-                style={[styles.copyPill, copied && styles.copyPillSuccess]}
-                onPress={handleCopyText}
-                activeOpacity={0.75}
-              >
-                {copied ? (
-                  <Check size={14} color="#059669" weight="bold" />
-                ) : (
-                  <Copy size={14} color="#475569" weight="regular" />
-                )}
-                <Text style={[styles.copyPillText, copied && { color: '#059669' }]}>
-                  {copied ? 'Copied' : 'Copy'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.textContainer}>
-              <Text style={styles.contentText}>
-                {displayContent || 'No extracted text found for this capture.'}
-              </Text>
-            </View>
-          </View>
-
-          {/* ACTION BUTTONS */}
-          <View style={styles.actionsFooter}>
+          {/* Quick Actions (Simple, non-annoying circular buttons) */}
+          <View style={styles.quickActionsGroup}>
             <TouchableOpacity
-              style={styles.pdfExportBtn}
+              style={styles.quickActionBtn}
+              onPress={handleCopyText}
+              activeOpacity={0.7}
+            >
+              {copied ? (
+                <Check size={18} color="#10B981" weight="bold" />
+              ) : (
+                <Copy size={18} color="#334155" weight="regular" />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickActionBtn}
               onPress={handleExportPDF}
               disabled={exporting}
-              activeOpacity={0.85}
+              activeOpacity={0.7}
             >
-              <FilePdf size={18} color="#FFFFFF" weight="bold" />
-              <Text style={styles.pdfExportBtnText}>
-                {exporting ? 'Generating PDF...' : 'Export as PDF'}
-              </Text>
+              {exporting ? (
+                <ActivityIndicator size="small" color="#0F172A" />
+              ) : (
+                <FilePdf size={18} color="#334155" weight="regular" />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickActionBtn}
+              onPress={() => {
+                if (typeof navigator !== 'undefined' && (navigator as any).share) {
+                  (navigator as any).share({ title: note?.title, text: displayContent });
+                } else {
+                  handleCopyText();
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <ShareNetwork size={18} color="#334155" weight="regular" />
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      )}
+        </View>
 
-      {/* FULLSCREEN PHOTO LIGHTBOX */}
+        <View style={styles.divider} />
+
+        {/* 3. Extracted Lecture Notes Content Box (Flexible & fits screen) */}
+        <View style={styles.contentBoxSection}>
+          <Text style={styles.contentSectionHeading}>LECTURE NOTES</Text>
+          <View style={styles.contentContainer}>
+            <ScrollView
+              style={styles.internalScroll}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
+              <Text style={styles.contentText}>
+                {displayContent || 'No lecture notes extracted for this capture.'}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* 4. Bottom Compact Action Rows */}
+        <View style={styles.actionList}>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={handleExportPDF}
+            disabled={exporting}
+            activeOpacity={0.65}
+          >
+            <View style={styles.actionRowLeft}>
+              <View style={styles.actionIconCircle}>
+                <FilePdf size={16} color="#0F172A" weight="bold" />
+              </View>
+              <Text style={styles.actionRowLabel}>
+                {exporting ? 'Generating PDF...' : 'Export as PDF Document'}
+              </Text>
+            </View>
+            <CaretRight size={15} color="#94A3B8" weight="regular" />
+          </TouchableOpacity>
+
+          {isSaved && (
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={handleDelete}
+              disabled={deleting}
+              activeOpacity={0.65}
+            >
+              <View style={styles.actionRowLeft}>
+                <View style={[styles.actionIconCircle, { backgroundColor: '#FEF2F2' }]}>
+                  <Trash size={16} color="#EF4444" weight="bold" />
+                </View>
+                <Text style={[styles.actionRowLabel, { color: '#EF4444' }]}>
+                  Delete from Vault
+                </Text>
+              </View>
+              <CaretRight size={15} color="#EF4444" weight="regular" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </Animated.View>
+
+      {/* ─── FULLSCREEN LIGHTBOX MODAL ─── */}
       <Modal visible={fullscreenImage} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <TouchableOpacity
@@ -330,204 +406,229 @@ export default function NotePreviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 52 : 36,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  circleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F8FAFC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  deleteBtn: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontFamily: 'PTSansBold',
-    fontWeight: '700',
-    color: '#0F172A',
+  loadingContainer: {
     flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 12,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  centerLoading: {
-    flex: 1,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scrollContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 48,
-  },
-  photoCard: {
-    width: '100%',
-    height: width * 0.65,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
-    marginBottom: 20,
+  // Hero Image - 35% of screen height
+  heroContainer: {
+    width: width,
+    height: height * 0.35,
     position: 'relative',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#1E293B',
   },
-  photoImg: {
+  heroImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
-  expandBadge: {
+  heroPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#334155',
+  },
+  heroTopBar: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  expandText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: 'PTSansBold',
-    fontWeight: '600',
-  },
-  titleSection: {
-    marginBottom: 20,
-  },
-  noteTitle: {
-    fontSize: 22,
-    fontFamily: 'PTSansBold',
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 10,
-    lineHeight: 28,
-  },
-  badgesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  pillBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  colorDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  pillText: {
-    fontSize: 12,
-    fontFamily: 'PTSansBold',
-    color: '#334155',
-  },
-  dateText: {
-    fontSize: 12,
-    fontFamily: 'PTSans',
-    color: '#64748B',
-  },
-  contentSection: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
+    top: Platform.OS === 'ios' ? 48 : 32,
+    left: 18,
+    right: 18,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    zIndex: 10,
+  },
+  frostedBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  // Overlapping White Detail Card - fills the rest of viewport, no page scroll
+  detailCard: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  handleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
     marginBottom: 10,
   },
-  sectionHeading: {
-    fontSize: 14,
-    fontFamily: 'PTSansBold',
-    fontWeight: '700',
-    color: '#334155',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  copyPill: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    gap: 12,
+    marginBottom: 4,
+  },
+  avatarThumbnailWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
     backgroundColor: '#F1F5F9',
-  },
-  copyPillSuccess: {
-    backgroundColor: '#ECFDF5',
-  },
-  copyPillText: {
-    fontSize: 12,
-    fontFamily: 'PTSansBold',
-    color: '#475569',
-  },
-  textContainer: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 18,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
-  contentText: {
-    fontSize: 15,
-    fontFamily: 'PTSans',
-    color: '#1E293B',
-    lineHeight: 24,
+  avatarThumbnail: {
+    width: '100%',
+    height: '100%',
   },
-  actionsFooter: {
-    marginTop: 8,
+  avatarFallback: {
+    width: '100%',
+    height: '100%',
   },
-  pdfExportBtn: {
-    backgroundColor: '#0F172A',
+  headerInfo: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 17,
+    fontFamily: 'AssistantBold',
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 3,
+  },
+  subjectPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  subjectPillText: {
+    fontSize: 11,
+    fontFamily: 'Assistant',
+    color: '#475569',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 8,
+  },
+  // Status & Actions Row
+  statusAndActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  statusMetaCol: {
+    flex: 1,
+  },
+  metaLabel: {
+    fontSize: 10,
+    fontFamily: 'AssistantBold',
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+  },
+  metaValue: {
+    fontSize: 13,
+    fontFamily: 'AssistantBold',
+    fontWeight: '600',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  quickActionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  quickActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    borderRadius: 12,
+    alignItems: 'center',
   },
-  pdfExportBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontFamily: 'PTSansBold',
+  // Extracted Content Section
+  contentBoxSection: {
+    flex: 1,
+    marginVertical: 4,
+  },
+  contentSectionHeading: {
+    fontSize: 10,
+    fontFamily: 'AssistantBold',
     fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.6,
+    marginBottom: 6,
   },
+  contentContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    minHeight: 80,
+  },
+  internalScroll: {
+    flex: 1,
+  },
+  contentText: {
+    fontSize: 13,
+    fontFamily: 'Assistant',
+    color: '#1E293B',
+    lineHeight: 20,
+  },
+  // Bottom Action List
+  actionList: {
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  actionRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  actionIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionRowLabel: {
+    fontSize: 13,
+    fontFamily: 'Assistant',
+    color: '#0F172A',
+  },
+  // Modal Fullscreen Lightbox
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    backgroundColor: 'rgba(0, 0, 0, 0.94)',
     justifyContent: 'center',
     alignItems: 'center',
   },

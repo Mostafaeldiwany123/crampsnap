@@ -2,32 +2,23 @@ import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
-  Image,
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { printToFileAsync } from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import {
-  CaretLeft,
-  Gear,
-  Camera,
-  FolderSimple,
-  Star,
   FilePdf,
-  Sparkle,
-  GridFour,
-  Trash,
-  CloudCheck,
   SignOut,
   CaretRight,
+  User,
+  CloudArrowUp,
+  CheckCircle,
 } from 'phosphor-react-native';
 import { supabase } from '@/services/supabase';
 import { getNotes } from '@/services/notes';
@@ -35,22 +26,15 @@ import { Note } from '@/types';
 import AuthBottomSheet from '@/components/AuthBottomSheet';
 
 export default function ProfileScreen() {
-  const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [profileName, setProfileName] = useState('College Scholar');
-  const [profileEmail, setProfileEmail] = useState('scholar@college.edu');
+  const [profileName, setProfileName] = useState('College Student');
+  const [profileEmail, setProfileEmail] = useState('student@college.edu');
   const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
   const [exportingAll, setExportingAll] = useState(false);
   const [showAuthSheet, setShowAuthSheet] = useState(false);
 
-  // Real Preferences toggles
-  const [aiAutoOcr, setAiAutoOcr] = useState(true);
-  const [cameraGridDefault, setCameraGridDefault] = useState(true);
-
   const loadProfileData = useCallback(async () => {
     try {
-      setLoading(true);
       const allNotes = await getNotes();
       setNotes(allNotes);
 
@@ -71,11 +55,13 @@ export default function ProfileScreen() {
               .join(' ')
           );
         }
+      } else {
+        setUser(null);
+        setProfileName('College Student');
+        setProfileEmail('Guest • Offline Storage');
       }
     } catch (e) {
       console.error('Profile load error:', e);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -84,34 +70,6 @@ export default function ProfileScreen() {
       loadProfileData();
     }, [loadProfileData])
   );
-
-  // Storage calculation
-  const totalBytes = notes.reduce(
-    (acc, note) => acc + (JSON.stringify(note).length || 0),
-    0
-  );
-  const mbUsed = (totalBytes / (1024 * 1024) + notes.length * 0.4).toFixed(1);
-  const photoCount = notes.filter((n) => !!n.image_url).length;
-
-  const handleEditProfile = () => {
-    if (Alert.prompt) {
-      Alert.prompt(
-        'Edit Profile Name',
-        'Enter your name:',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Save',
-            onPress: (val?: string) => val && setProfileName(val.trim()),
-          },
-        ],
-        'plain-text',
-        profileName
-      );
-    } else {
-      Alert.alert('Edit Profile', 'Profile name updated for your study sessions.');
-    }
-  };
 
   const handleExportAllPDF = async () => {
     if (notes.length === 0) {
@@ -162,21 +120,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleClearCache = () => {
-    Alert.alert('Clear Cache', 'Clear temporary downloaded image and thumbnail caches?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear Cache',
-        style: 'destructive',
-        onPress: () => {
-          Alert.alert('Success', 'Local image cache cleared! Freed 14.8 MB.');
-        },
-      },
-    ]);
-  };
-
   const handleSignOut = async () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out of your study account?', [
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Log Out',
@@ -186,267 +131,112 @@ export default function ProfileScreen() {
             await supabase?.auth.signOut();
           } catch (e) {}
           setUser(null);
-          setProfileName('College Scholar');
-          setProfileEmail('scholar@college.edu');
-          Alert.alert('Logged Out', 'Signed out. You are now in offline guest mode.');
+          setProfileName('College Student');
+          setProfileEmail('Guest • Offline Storage');
         },
       },
     ]);
   };
 
+  // Initials for avatar
+  const initials = profileName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+
   return (
     <View style={styles.container}>
-      {/* ─── TOP HEADER ─── */}
+      {/* ─── HEADER ─── */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <CaretLeft size={22} color="#0F172A" weight="bold" />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>My Profile</Text>
-
-        <TouchableOpacity
-          style={styles.headerIconBtn}
-          onPress={() =>
-            Alert.alert(
-              'College Photo App',
-              `Study Vault Storage: ${mbUsed} MB used\nTotal Notes: ${notes.length}\nPhotos: ${photoCount}`
-            )
-          }
-          activeOpacity={0.7}
-        >
-          <Gear size={22} color="#0F172A" weight="regular" />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
       </View>
 
-      {/* ─── FULL-WIDTH SCROLLABLE CONTENT ─── */}
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── PROFILE HERO CARD ─── */}
-        <View style={styles.profileHero}>
-          <View style={styles.avatarWrapper}>
-            <Image
-              source={require('@/assets/images/student_avatar.jpg')}
-              style={styles.avatarImg}
-            />
-            <TouchableOpacity
-              style={styles.cameraBadge}
-              onPress={handleEditProfile}
-              activeOpacity={0.8}
-            >
-              <Camera size={13} color="#334155" weight="bold" />
-            </TouchableOpacity>
+        {/* ─── USER CARD ─── */}
+        <View style={styles.userCard}>
+          <View style={styles.avatarCircle}>
+            {user ? (
+              <Text style={styles.avatarText}>{initials || 'S'}</Text>
+            ) : (
+              <User size={28} color="#FFFFFF" weight="bold" />
+            )}
           </View>
-
-          <View style={styles.profileDetails}>
-            <Text style={styles.nameText} numberOfLines={1}>
+          <View style={styles.userDetails}>
+            <Text style={styles.userName} numberOfLines={1}>
               {profileName}
             </Text>
-            <Text style={styles.emailText} numberOfLines={1}>
+            <Text style={styles.userEmail} numberOfLines={1}>
               {profileEmail}
             </Text>
-
-            <TouchableOpacity
-              style={styles.editBtn}
-              onPress={handleEditProfile}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.editBtnText}>Edit Profile</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* ─── REAL VAULT STATS (Same Theme Colors) ─── */}
-        <View style={styles.statsCard}>
-          <View style={styles.statCol}>
-            <Text style={styles.statValue}>{notes.length}</Text>
-            <Text style={styles.statLabel}>Digitized Notes</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statCol}>
-            <Text style={styles.statValue}>{photoCount}</Text>
-            <Text style={styles.statLabel}>Photo Captures</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statCol}>
-            <Text style={styles.statValue}>{mbUsed} MB</Text>
-            <Text style={styles.statLabel}>Vault Storage</Text>
-          </View>
-        </View>
-
-        {/* ─── SECTION 1: STUDY VAULT & LIBRARY ─── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeaderLabel}>STUDY VAULT & LIBRARY</Text>
-
+        {/* ─── CLOUD SYNC / SIGN IN BUTTON (Only if guest) ─── */}
+        {!user ? (
           <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(tabs)/library')}
-            activeOpacity={0.65}
+            style={styles.cloudSyncBtn}
+            onPress={() => setShowAuthSheet(true)}
+            activeOpacity={0.85}
           >
-            <View style={styles.rowLeft}>
-              <View style={styles.iconCircle}>
-                <FolderSimple size={20} color="#0F172A" weight="regular" />
-              </View>
-              <Text style={styles.rowLabel}>Course Subjects & Categories</Text>
-            </View>
-            <CaretRight size={16} color="#94A3B8" weight="regular" />
+            <CloudArrowUp size={20} color="#FFFFFF" weight="bold" />
+            <Text style={styles.cloudSyncBtnText}>Sign In with Google</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={styles.syncedBadge}>
+            <CheckCircle size={16} color="#10B981" weight="fill" />
+            <Text style={styles.syncedBadgeText}>Cloud Backup Active</Text>
+          </View>
+        )}
 
+        {/* ─── VAULT SECTION ─── */}
+        <Text style={styles.sectionHeading}>VAULT</Text>
+        <View style={styles.card}>
           <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(tabs)/library')}
-            activeOpacity={0.65}
-          >
-            <View style={styles.rowLeft}>
-              <View style={styles.iconCircle}>
-                <Star size={20} color="#0F172A" weight="regular" />
-              </View>
-              <Text style={styles.rowLabel}>Starred & Important Notes</Text>
-            </View>
-            <CaretRight size={16} color="#94A3B8" weight="regular" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuRow}
+            style={styles.actionRow}
             onPress={handleExportAllPDF}
             disabled={exportingAll}
-            activeOpacity={0.65}
+            activeOpacity={0.7}
           >
-            <View style={styles.rowLeft}>
+            <View style={styles.actionLeft}>
               <View style={styles.iconCircle}>
                 {exportingAll ? (
                   <ActivityIndicator size="small" color="#0F172A" />
                 ) : (
-                  <FilePdf size={20} color="#0F172A" weight="regular" />
+                  <FilePdf size={22} color="#0F172A" weight="regular" />
                 )}
               </View>
-              <Text style={styles.rowLabel}>
-                {exportingAll ? 'Generating Full PDF...' : 'Export Complete Vault as PDF'}
-              </Text>
-            </View>
-            <CaretRight size={16} color="#94A3B8" weight="regular" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* ─── SECTION 2: SCANNER & AI PREFERENCES ─── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeaderLabel}>SCANNER & AI PREFERENCES</Text>
-
-          <View style={styles.menuRow}>
-            <View style={styles.rowLeft}>
-              <View style={styles.iconCircle}>
-                <Sparkle size={20} color="#0F172A" weight="fill" />
-              </View>
-              <View>
-                <Text style={styles.rowLabel}>AI Auto-Extract Notes</Text>
-                <Text style={styles.rowSubLabel}>Extract formulas & text from blackboard photos</Text>
-              </View>
-            </View>
-            <Switch
-              value={aiAutoOcr}
-              onValueChange={setAiAutoOcr}
-              trackColor={{ false: '#E2E8F0', true: '#0F172A' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
-          <View style={styles.menuRow}>
-            <View style={styles.rowLeft}>
-              <View style={styles.iconCircle}>
-                <GridFour size={20} color="#0F172A" weight="regular" />
-              </View>
-              <View>
-                <Text style={styles.rowLabel}>Camera Alignment Grid</Text>
-                <Text style={styles.rowSubLabel}>Rule-of-thirds grid for straight board captures</Text>
-              </View>
-            </View>
-            <Switch
-              value={cameraGridDefault}
-              onValueChange={setCameraGridDefault}
-              trackColor={{ false: '#E2E8F0', true: '#0F172A' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* ─── SECTION 3: STORAGE & ACCOUNT ─── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeaderLabel}>STORAGE & ACCOUNT</Text>
-
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => {
-              if (user) {
-                Alert.alert('Cloud Sync', 'Vault is connected & synced with Supabase.');
-              } else {
-                setShowAuthSheet(true);
-              }
-            }}
-            activeOpacity={0.65}
-          >
-            <View style={styles.rowLeft}>
-              <View style={styles.iconCircle}>
-                <CloudCheck size={20} color={user ? '#10B981' : '#0F172A'} weight="regular" />
-              </View>
-              <View>
-                <Text style={styles.rowLabel}>
-                  {user ? 'Cloud Sync Active' : 'Sign In to Backup Vault'}
+              <View style={styles.actionTextCol}>
+                <Text style={styles.actionTitle}>
+                  {exportingAll ? 'Generating PDF...' : 'Export Notes to PDF'}
                 </Text>
-                <Text style={styles.rowSubLabel}>
-                  {user ? user.email : 'Tap to enable automatic cloud backup'}
+                <Text style={styles.actionSub}>
+                  {notes.length} {notes.length === 1 ? 'note' : 'notes'} compiled
                 </Text>
               </View>
             </View>
-            <CaretRight size={16} color="#94A3B8" weight="regular" />
+            <CaretRight size={16} color="#94A3B8" weight="bold" />
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={handleClearCache}
-            activeOpacity={0.65}
-          >
-            <View style={styles.rowLeft}>
-              <View style={styles.iconCircle}>
-                <Trash size={20} color="#0F172A" weight="regular" />
-              </View>
-              <Text style={styles.rowLabel}>Clear Image Cache</Text>
-            </View>
-            <CaretRight size={16} color="#94A3B8" weight="regular" />
-          </TouchableOpacity>
-
-          {user && (
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={handleSignOut}
-              activeOpacity={0.65}
-            >
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: '#FEF2F2' }]}>
-                  <SignOut size={20} color="#EF4444" weight="bold" />
-                </View>
-                <Text style={[styles.rowLabel, { color: '#EF4444' }]}>Log Out</Text>
-              </View>
-              <CaretRight size={16} color="#EF4444" weight="regular" />
-            </TouchableOpacity>
-          )}
         </View>
 
-        {/* ─── APP VERSION ─── */}
-        <Text style={styles.versionText}>College Photo App &bull; Version 1.0.0</Text>
+        {/* ─── LOG OUT (If user is signed in) ─── */}
+        {user && (
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={handleSignOut}
+            activeOpacity={0.7}
+          >
+            <SignOut size={18} color="#EF4444" weight="bold" />
+            <Text style={styles.logoutText}>Log Out</Text>
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.footerText}>Version 1.0.0</Text>
       </ScrollView>
 
       {/* Auth Modal for Sign In */}
@@ -470,192 +260,182 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 56 : 38,
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 52 : 36,
-    paddingBottom: 14,
+    paddingBottom: 16,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  headerIconBtn: {
-    width: 38,
-    height: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 17,
-    fontFamily: 'PTSansBold',
-    color: '#0F172A',
+    fontSize: 28,
+    fontFamily: 'Assistant',
     fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   scrollArea: {
     flex: 1,
-    width: '100%',
   },
   scrollContent: {
-    width: '100%',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 100,
+    paddingTop: 8,
+    paddingBottom: 110,
   },
-  profileHero: {
+  // User Card
+  userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  avatarWrapper: {
-    position: 'relative',
-    width: 78,
-    height: 78,
-    marginRight: 18,
-  },
-  avatarImg: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: '#F1F5F9',
-  },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  profileDetails: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  nameText: {
-    fontSize: 18,
-    fontFamily: 'PTSansBold',
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  emailText: {
-    fontSize: 13,
-    fontFamily: 'PTSans',
-    color: '#64748B',
-    marginBottom: 10,
-  },
-  editBtn: {
-    backgroundColor: '#16A34A',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  editBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontFamily: 'PTSansBold',
-    fontWeight: '600',
-  },
-  statsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    marginBottom: 24,
+    padding: 16,
+    marginBottom: 16,
   },
-  statCol: {
+  avatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
     alignItems: 'center',
-    flex: 1,
+    marginRight: 16,
   },
-  statValue: {
-    fontSize: 16,
-    fontFamily: 'PTSansBold',
+  avatarText: {
+    fontSize: 20,
+    fontFamily: 'Assistant',
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  userDetails: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  userName: {
+    fontSize: 19,
+    fontFamily: 'Assistant',
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 2,
   },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: 'PTSans',
+  userEmail: {
+    fontSize: 13,
+    fontFamily: 'Assistant',
     color: '#64748B',
   },
-  statDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#E2E8F0',
+  cloudSyncBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginBottom: 28,
   },
-  section: {
-    paddingVertical: 4,
+  cloudSyncBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: 'Assistant',
+    fontWeight: '700',
   },
-  sectionHeaderLabel: {
+  syncedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 24,
+  },
+  syncedBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Assistant',
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  sectionHeading: {
     fontSize: 11,
-    fontFamily: 'PTSansBold',
+    fontFamily: 'Assistant',
     fontWeight: '700',
     color: '#94A3B8',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
     marginBottom: 8,
+    marginLeft: 4,
   },
-  menuRow: {
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  rowLeft: {
+  actionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     flex: 1,
   },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
   },
-  rowLabel: {
-    fontSize: 15,
-    fontFamily: 'PTSans',
+  actionTextCol: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontFamily: 'Assistant',
+    fontWeight: '700',
     color: '#0F172A',
+    marginBottom: 2,
   },
-  rowSubLabel: {
-    fontSize: 11,
-    fontFamily: 'PTSans',
+  actionSub: {
+    fontSize: 12,
+    fontFamily: 'Assistant',
     color: '#64748B',
-    marginTop: 1,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 14,
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginBottom: 24,
   },
-  versionText: {
+  logoutText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontFamily: 'Assistant',
+    fontWeight: '700',
+  },
+  footerText: {
     textAlign: 'center',
-    fontSize: 11,
-    fontFamily: 'PTSans',
+    fontSize: 12,
+    fontFamily: 'Assistant',
     color: '#94A3B8',
-    marginTop: 24,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 20,
   },
 });

@@ -14,6 +14,12 @@ import {
   PTSans_400Regular,
   PTSans_700Bold
 } from '@expo-google-fonts/pt-sans';
+import {
+  Assistant_400Regular,
+  Assistant_600SemiBold,
+  Assistant_700Bold,
+  Assistant_800ExtraBold,
+} from '@expo-google-fonts/assistant';
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
@@ -35,6 +41,10 @@ export default function RootLayout() {
     NunitoBold: Nunito_700Bold,
     PTSans: PTSans_400Regular,
     PTSansBold: PTSans_700Bold,
+    Assistant: Assistant_400Regular,
+    AssistantSemiBold: Assistant_600SemiBold,
+    AssistantBold: Assistant_700Bold,
+    AssistantExtraBold: Assistant_800ExtraBold,
     ...FontAwesome.font,
   });
 

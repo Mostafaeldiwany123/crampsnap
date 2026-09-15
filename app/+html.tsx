@@ -20,7 +20,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 
         {/* Using raw CSS styles as an escape-hatch to ensure the background color never flickers in dark-mode. */}
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
@@ -32,12 +32,38 @@ export default function Root({ children }: { children: React.ReactNode }) {
 
 const responsiveBackground = `
 * {
-  font-family: 'PT Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Assistant', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
 }
 body {
   background-color: #ffffff;
-  color: #111827;
-  font-family: 'PT Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0F172A;
+  font-family: 'Assistant', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+@font-face {
+  font-family: 'AssistantBold';
+  src: local('Assistant Bold'), local('Assistant-Bold');
+  font-weight: 700;
+}
+@font-face {
+  font-family: 'AssistantSemiBold';
+  src: local('Assistant SemiBold'), local('Assistant-SemiBold');
+  font-weight: 600;
+}
+@font-face {
+  font-family: 'AssistantExtraBold';
+  src: local('Assistant ExtraBold'), local('Assistant-ExtraBold');
+  font-weight: 800;
+}
+button, input, textarea, select {
+  font-family: 'Assistant', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+*:focus, *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 @media (prefers-color-scheme: dark) {
   body {

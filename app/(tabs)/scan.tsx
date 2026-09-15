@@ -5,11 +5,13 @@ import {
   Animated,
   Dimensions,
   Image,
+  PanResponder,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  DeviceEventEmitter,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
@@ -23,7 +25,6 @@ import {
   ArrowCounterClockwise,
   Images,
   User,
-  Sparkle,
 } from 'phosphor-react-native';
 import { createProcessingNote, getNotes } from '@/services/notes';
 import { processNote } from '@/services/processor';
@@ -38,7 +39,13 @@ export default function ScanScreen() {
   const [lastPhotoUri, setLastPhotoUri] = useState<string | null>(null);
 
   // Camera Settings
-  const [zoomIndex, setZoomIndex] = useState<'0.5' | '1x' | '2' | '3'>('1x');
+  const [zoom, setZoom] = useState(0); // 0.0 to 1.0 for CameraView
+  const [zoomMultiplier, setZoomMultiplier] = useState(1.0); // 1.0x to 5.0x
+  const currentZoomRef = useRef(0);
+  const lastTouchDistance = useRef<number | null>(null);
+  const zoomAnim = useRef(new Animated.Value(0)).current;
+  const zoomTimerRef = useRef<any>(null);
+
   const [flash, setFlash] = useState<'off' | 'on' | 'auto'>('off');
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [showGrid, setShowGrid] = useState(true);
@@ -58,18 +65,71 @@ export default function ScanScreen() {
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
-  const getCameraZoom = () => {
-    switch (zoomIndex) {
-      case '0.5':
-        return 0.0;
-      case '1x':
-        return 0.0;
-      case '2':
-        return 0.25;
-      case '3':
-        return 0.55;
-      default:
-        return 0.0;
+  // Trigger bigger zoom indicator in the center of the screen
+  const triggerZoomDisplay = (multiplier: number) => {
+    setZoomMultiplier(multiplier);
+    Animated.timing(zoomAnim, {
+      toValue: 1,
+      duration: 120,
+      useNativeDriver: true,
+    }).start();
+
+    if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
+    zoomTimerRef.current = setTimeout(() => {
+      Animated.timing(zoomAnim, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }).start();
+    }, 1400);
+  };
+
+  // Pinch-to-zoom PanResponder
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
+      onMoveShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
+      onPanResponderGrant: (evt) => {
+        const touches = evt.nativeEvent.touches;
+        if (touches.length === 2) {
+          const dx = touches[0].pageX - touches[1].pageX;
+          const dy = touches[0].pageY - touches[1].pageY;
+          lastTouchDistance.current = Math.hypot(dx, dy);
+        }
+      },
+      onPanResponderMove: (evt) => {
+        const touches = evt.nativeEvent.touches;
+        if (touches.length === 2 && lastTouchDistance.current) {
+          const dx = touches[0].pageX - touches[1].pageX;
+          const dy = touches[0].pageY - touches[1].pageY;
+          const dist = Math.hypot(dx, dy);
+          const diff = (dist - lastTouchDistance.current) / 250;
+
+          const nextZoom = Math.min(Math.max(currentZoomRef.current + diff, 0), 1);
+          currentZoomRef.current = nextZoom;
+          setZoom(nextZoom);
+
+          const mult = 1.0 + nextZoom * 4.0;
+          triggerZoomDisplay(parseFloat(mult.toFixed(1)));
+          lastTouchDistance.current = dist;
+        }
+      },
+      onPanResponderRelease: () => {
+        lastTouchDistance.current = null;
+      },
+    })
+  ).current;
+
+  // Web mouse wheel / trackpad pinch zoom
+  const handleWheel = (e: any) => {
+    if (Platform.OS === 'web') {
+      const delta = e.deltaY || 0;
+      const diff = delta < 0 ? 0.04 : -0.04;
+      const nextZoom = Math.min(Math.max(currentZoomRef.current + diff, 0), 1);
+      currentZoomRef.current = nextZoom;
+      setZoom(nextZoom);
+      const mult = 1.0 + nextZoom * 4.0;
+      triggerZoomDisplay(parseFloat(mult.toFixed(1)));
     }
   };
 
@@ -152,6 +212,13 @@ export default function ScanScreen() {
     takePicture();
   };
 
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('TRIGGER_CAPTURE_PHOTO', () => {
+      handleShutterPress();
+    });
+    return () => sub.remove();
+  }, [user, guestMode]);
+
   const takePicture = async () => {
     triggerShutterFeedback();
 
@@ -180,6 +247,7 @@ export default function ScanScreen() {
           const note = await createProcessingNote(savedPath, 'Captured Photo', 'Analyzing text...');
           await trackUsage('batch_image_saved');
           processNote(note.id, savedPath);
+          DeviceEventEmitter.emit('PHOTO_SAVED', { uri: savedPath });
         }
       } catch (error) {
         console.error('Capture error:', error);
@@ -214,6 +282,7 @@ export default function ScanScreen() {
         const note = await createProcessingNote(savedPath, 'Imported Lecture Photo', 'Analyzing text...');
         await trackUsage('batch_image_saved');
         processNote(note.id, savedPath);
+        DeviceEventEmitter.emit('PHOTO_SAVED', { uri: savedPath });
         router.push('/(tabs)/library');
       }
     } catch (e) {
@@ -269,7 +338,7 @@ export default function ScanScreen() {
         ref={cameraRef}
         facing={facing}
         flash={flash}
-        zoom={getCameraZoom()}
+        zoom={zoom}
         autofocus="on"
       >
         {/* Shutter Screen Flash */}
@@ -312,30 +381,22 @@ export default function ScanScreen() {
             <UploadSimple size={26} color="#FFFFFF" weight="regular" />
           </TouchableOpacity>
 
-          {/* AI Smart Scan / OCR Toggle (Borderless icon) */}
+          {/* Rotate / Flip Camera Icon (Replaced AI Sparkle) */}
           <TouchableOpacity
             style={styles.borderlessBtn}
-            onPress={() => {
-              const next = !aiScanEnabled;
-              setAiScanEnabled(next);
-              Alert.alert(
-                'AI Lecture Mode',
-                next
-                  ? 'AI Formula & Note Extraction: ENABLED'
-                  : 'AI Formula & Note Extraction: DISABLED (Fast photo capture only)'
-              );
-            }}
+            onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
+            activeOpacity={0.7}
           >
-            <Sparkle
-              size={26}
-              color={aiScanEnabled ? '#FBBF24' : 'rgba(255,255,255,0.45)'}
-              weight={aiScanEnabled ? 'fill' : 'regular'}
-            />
+            <ArrowCounterClockwise size={26} color="#FFFFFF" weight="regular" />
           </TouchableOpacity>
         </View>
 
         {/* ─── PURE CAMERA VIEWFINDER WITH OPTIONAL THIN GRID ─── */}
-        <View style={styles.viewfinder}>
+        <View
+          style={styles.viewfinder}
+          {...panResponder.panHandlers}
+          {...(Platform.OS === 'web' ? { onWheel: handleWheel } : {})}
+        >
           {showGrid && (
             <View style={styles.gridOverlay}>
               <View style={styles.gridRow}>
@@ -355,75 +416,25 @@ export default function ScanScreen() {
               </View>
             </View>
           )}
+
+          {/* Center Zoom Multiplier Text (Appears bigger in the middle when pinching in/out) */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.centerZoomContainer,
+              { opacity: zoomAnim },
+            ]}
+          >
+            <View style={styles.centerZoomBadge}>
+              <Text style={styles.centerZoomText}>
+                {zoomMultiplier <= 1.05 ? '1x' : `${zoomMultiplier.toFixed(1)}x`}
+              </Text>
+            </View>
+          </Animated.View>
         </View>
 
-        {/* ─── BOTTOM DECK (SHUTTER, THUMBNAIL & ROTATE) ─── */}
-        <View style={styles.bottomDeck}>
-          {/* Minimalist Zoom Capsule */}
-          <View style={styles.zoomCapsule}>
-            {(['0.5', '1x', '2', '3'] as const).map((z) => (
-              <TouchableOpacity
-                key={z}
-                style={[styles.zoomPill, zoomIndex === z && styles.zoomPillActive]}
-                onPress={() => setZoomIndex(z)}
-              >
-                <Text style={[styles.zoomText, zoomIndex === z && styles.zoomTextActive]}>
-                  {z}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Bottom Bar Controls */}
-          <View style={styles.shutterRow}>
-            {/* Bottom-Left Gallery Thumbnail (tapping goes to Photos gallery tab) */}
-            <TouchableOpacity
-              style={styles.thumbTouchArea}
-              onPress={() => router.push('/(tabs)/library')}
-              activeOpacity={0.8}
-            >
-              <Animated.View
-                style={[
-                  styles.thumbContainer,
-                  { transform: [{ scale: thumbScale }] },
-                ]}
-              >
-                {lastPhotoUri ? (
-                  <Image source={{ uri: lastPhotoUri }} style={styles.thumbImage} />
-                ) : (
-                  <View style={styles.thumbFallback}>
-                    <Images size={20} color="#FFFFFF" weight="regular" />
-                  </View>
-                )}
-              </Animated.View>
-            </TouchableOpacity>
-
-            {/* Bottom-Center Iconic Shutter Button */}
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={handleShutterPress}
-              style={styles.shutterTouchArea}
-            >
-              <Animated.View
-                style={[
-                  styles.shutterRingOuter,
-                  { transform: [{ scale: shutterScale }] },
-                ]}
-              >
-                <View style={styles.shutterRingInner} />
-              </Animated.View>
-            </TouchableOpacity>
-
-            {/* Bottom-Right Rotate/Flip Camera (Borderless icon, NO border) */}
-            <TouchableOpacity
-              style={styles.rotateBtn}
-              onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
-              activeOpacity={0.7}
-            >
-              <ArrowCounterClockwise size={30} color="#FFFFFF" weight="regular" />
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* ─── BOTTOM DECK (Clean spacing for bottom tab bar) ─── */}
+        <View style={styles.bottomDeck} />
       </CameraView>
 
       <AuthBottomSheet
@@ -460,13 +471,14 @@ const styles = StyleSheet.create({
   },
   permTitle: {
     fontSize: 20,
-    fontFamily: 'PTSansBold',
+    fontFamily: 'AssistantBold',
+    fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 8,
   },
   permSub: {
     fontSize: 14,
-    fontFamily: 'PTSans',
+    fontFamily: 'Assistant',
     color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 20,
@@ -480,7 +492,8 @@ const styles = StyleSheet.create({
   },
   permBtnText: {
     color: '#000000',
-    fontFamily: 'PTSansBold',
+    fontFamily: 'AssistantBold',
+    fontWeight: '700',
     fontSize: 14,
   },
   // ─── TOP BAR (BORDERLESS) ───
@@ -496,7 +509,6 @@ const styles = StyleSheet.create({
     padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    // NO border, NO background
   },
   // ─── VIEWFINDER ───
   viewfinder: {
@@ -515,97 +527,35 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-  // ─── BOTTOM DECK ───
+  // ─── BOTTOM DECK (SPACER FOR BOTTOM TAB BAR) ───
   bottomDeck: {
-    paddingBottom: Platform.OS === 'ios' ? 90 : 80,
-    paddingTop: 12,
+    height: Platform.OS === 'ios' ? 80 : 66,
   },
-  zoomCapsule: {
-    flexDirection: 'row',
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    borderRadius: 16,
-    padding: 3,
-    gap: 4,
-    marginBottom: 20,
-  },
-  zoomPill: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  // ─── CENTER ZOOM MULTIPLIER TEXT (BIGGER IN MIDDLE ON PINCH) ───
+  centerZoomContainer: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 50,
   },
-  zoomPillActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  centerZoomBadge: {
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 26,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  zoomText: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 11,
-    fontFamily: 'PTSansBold',
-  },
-  zoomTextActive: {
+  centerZoomText: {
     color: '#FFFFFF',
-  },
-  shutterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  thumbTouchArea: {
-    width: 52,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  thumbContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  thumbImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  thumbFallback: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  shutterTouchArea: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  shutterRingOuter: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  shutterRingInner: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#FFFFFF',
-  },
-  rotateBtn: {
-    width: 52,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    // NO border, NO circle background
+    fontSize: 32,
+    fontFamily: 'AssistantBold',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
