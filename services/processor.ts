@@ -1,6 +1,6 @@
 import { getCategories, saveCategory, updateNote } from '@/services/notes';
 import { chatWithAI } from '@/services/openrouter';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 const getRandomColor = () => {

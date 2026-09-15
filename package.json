@@ -21,6 +21,7 @@
     "@supabase/supabase-js": "^2.95.3",
     "cross-env": "^10.1.0",
     "expo": "^57.0.23",
+    "expo-av": "^16.0.8",
     "expo-blur": "~57.0.3",
     "expo-camera": "~57.0.5",
     "expo-constants": "~57.0.18",

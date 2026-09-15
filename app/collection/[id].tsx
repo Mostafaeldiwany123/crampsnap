@@ -8,11 +8,12 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Camera, Images } from 'phosphor-react-native';
+import { ArrowLeft, Camera, Images, X, Trash, Check } from 'phosphor-react-native';
 import Colors from '@/constants/Colors';
-import { getCategories, getNotes } from '@/services/notes';
+import { getCategories, getNotes, deleteNotes } from '@/services/notes';
 import { Category, Note } from '@/types';
 import TactileButton from '@/components/TactileButton';
 
@@ -28,6 +29,8 @@ export default function CollectionDetailScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
 
   const loadData = async () => {
     try {
@@ -75,45 +78,109 @@ export default function CollectionDetailScreen() {
     loadData();
   };
 
-  const renderNoteItem = ({ item }: { item: Note }) => (
-    <TouchableOpacity
-      style={styles.photoCard}
-      onPress={() => {
-        router.push({ pathname: '/note/preview', params: { id: item.id } });
-      }}
-      activeOpacity={0.88}
-    >
-      {item.image_url ? (
-        <Image source={{ uri: item.image_url }} style={styles.photoImage} />
-      ) : (
-        <View style={styles.photoPlaceholder}>
-          <Camera size={24} color="#D1D5DB" weight="light" />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+  const handleLongPressPhoto = (id: string) => {
+    setIsSelectionMode(true);
+    setSelectedNoteIds(new Set([id]));
+  };
+
+  const handlePressPhoto = (id: string) => {
+    if (isSelectionMode) {
+      const newSelection = new Set(selectedNoteIds);
+      if (newSelection.has(id)) {
+        newSelection.delete(id);
+        if (newSelection.size === 0) {
+          setIsSelectionMode(false);
+        }
+      } else {
+        newSelection.add(id);
+      }
+      setSelectedNoteIds(newSelection);
+    } else {
+      router.push({ pathname: '/note/preview', params: { id } });
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    Alert.alert(
+      'Delete Photos',
+      `Are you sure you want to delete ${selectedNoteIds.size} ${selectedNoteIds.size === 1 ? 'photo' : 'photos'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            await deleteNotes(Array.from(selectedNoteIds));
+            setIsSelectionMode(false);
+            setSelectedNoteIds(new Set());
+            loadData();
+          }
+        }
+      ]
+    );
+  };
+
+  const renderNoteItem = ({ item }: { item: Note }) => {
+    const isSelected = selectedNoteIds.has(item.id);
+    return (
+      <TouchableOpacity
+        style={styles.photoCard}
+        onLongPress={() => handleLongPressPhoto(item.id)}
+        onPress={() => handlePressPhoto(item.id)}
+        activeOpacity={0.88}
+      >
+        {item.image_url ? (
+          <Image source={{ uri: item.image_url }} style={styles.photoImage} />
+        ) : (
+          <View style={styles.photoPlaceholder}>
+            <Camera size={24} color="#D1D5DB" weight="light" />
+          </View>
+        )}
+        {isSelectionMode && (
+          <View style={[styles.selectionOverlay, isSelected && styles.selectionOverlayActive]}>
+            {isSelected && <Check size={16} color="#FFFFFF" weight="bold" />}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
       {/* ─── HEADER ─── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color="#111827" weight="bold" />
-        </TouchableOpacity>
+        {isSelectionMode ? (
+          <>
+            <TouchableOpacity onPress={() => { setIsSelectionMode(false); setSelectedNoteIds(new Set()); }} style={styles.backBtn}>
+              <X size={22} color="#111827" weight="bold" />
+            </TouchableOpacity>
 
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{category?.name || 'Collection'}</Text>
-          <Text style={styles.headerSub}>
-            {notes.length} {notes.length === 1 ? 'photo' : 'photos'}
-          </Text>
-        </View>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>{selectedNoteIds.size} Selected</Text>
+            </View>
 
-        <TouchableOpacity
-          style={styles.cameraBtn}
-          onPress={() => router.push('/(tabs)/scan')}
-        >
-          <Camera size={22} color="#111827" weight="regular" />
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.cameraBtn} onPress={handleDeleteSelected}>
+              <Trash size={22} color="#EF4444" weight="bold" />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <ArrowLeft size={22} color="#111827" weight="bold" />
+            </TouchableOpacity>
+
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>{category?.name || 'Collection'}</Text>
+              <Text style={styles.headerSub}>
+                {notes.length} {notes.length === 1 ? 'photo' : 'photos'}
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.cameraBtn} onPress={() => router.push('/(tabs)/scan')}>
+              <Camera size={22} color="#111827" weight="regular" />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {/* ─── PHOTOS GRID ─── */}
@@ -203,6 +270,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
+  },
+  selectionOverlay: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectionOverlayActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
   },
   emptyContainer: {
     alignItems: 'center',

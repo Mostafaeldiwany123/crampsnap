@@ -73,6 +73,19 @@ export const deleteNote = async (id: string) => {
   }
 };
 
+export const deleteNotes = async (ids: string[]) => {
+  try {
+    const raw = await AsyncStorage.getItem(NOTES_KEY);
+    let notes: Note[] = raw ? JSON.parse(raw) : [];
+    const idSet = new Set(ids);
+    notes = notes.filter((n) => !idSet.has(n.id));
+    await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  } catch (error) {
+    console.error('Error deleting notes:', error);
+    throw error;
+  }
+};
+
 export const createProcessingNote = async (
   imageUri: string,
   initialTitle?: string,

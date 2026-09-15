@@ -14,7 +14,7 @@ import {
   DeviceEventEmitter,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -32,6 +32,9 @@ import {
 import { createProcessingNote, getNotes } from '@/services/notes';
 import { processNote } from '@/services/processor';
 import { trackUsage } from '@/services/usage';
+import { loadShutterSound, playShutterSound } from '@/services/audio';
+import ScannerOverlay from '@/components/ScannerOverlay';
+import BatchSelector from '@/components/BatchSelector';
 
 const { width } = Dimensions.get('window');
 
@@ -53,11 +56,29 @@ export default function ScanScreen() {
 
   // Animations
   const shutterScale = useRef(new Animated.Value(1)).current;
-  const flashAnim = useRef(new Animated.Value(0)).current;
   const thumbScale = useRef(new Animated.Value(1)).current;
 
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+  
+  // Moved useEffect down
+
+  // Burst & Scanning State
+  const [activeScanPhoto, setActiveScanPhoto] = useState<string | null>(null);
+  const [burstPhotos, setBurstPhotos] = useState<string[]>([]);
+  const [isBursting, setIsBursting] = useState(false);
+  const [showBatchSelector, setShowBatchSelector] = useState(false);
+  const burstIntervalRef = useRef<any>(null);
+
+  // Hide the tab bar when overlaying the image or batch selector
+  useEffect(() => {
+    const isOverlayActive = !!activeScanPhoto || (showBatchSelector && burstPhotos.length > 0);
+    DeviceEventEmitter.emit('TOGGLE_TAB_BAR', !isOverlayActive);
+  }, [activeScanPhoto, showBatchSelector, burstPhotos.length]);
+
+  useEffect(() => {
+    loadShutterSound();
+  }, []);
 
   // Trigger bigger zoom indicator in the center of the screen
   const triggerZoomDisplay = (multiplier: number) => {
@@ -159,13 +180,6 @@ export default function ScanScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-
-    flashAnim.setValue(0.75);
-    Animated.timing(flashAnim, {
-      toValue: 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
   };
 
   const animateThumbnail = () => {
@@ -179,25 +193,58 @@ export default function ScanScreen() {
   };
 
   const handleShutterPress = () => {
-    takePicture();
+    takePicture(false);
   };
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('TRIGGER_CAPTURE_PHOTO', () => {
+    const subCapture = DeviceEventEmitter.addListener('TRIGGER_CAPTURE_PHOTO', () => {
       handleShutterPress();
     });
-    return () => sub.remove();
+
+    const subStartBurst = DeviceEventEmitter.addListener('START_BURST_CAPTURE', () => {
+      setIsBursting(true);
+      setBurstPhotos([]);
+      // Take first photo immediately
+      takePicture(true);
+      burstIntervalRef.current = setInterval(() => {
+        takePicture(true);
+      }, 600);
+    });
+
+    const subStopBurst = DeviceEventEmitter.addListener('STOP_BURST_CAPTURE', () => {
+      setIsBursting((prev) => {
+        if (prev) {
+          setTimeout(() => setShowBatchSelector(true), 200); // slight delay to allow last photo to resolve
+        }
+        return false;
+      });
+      if (burstIntervalRef.current) {
+        clearInterval(burstIntervalRef.current);
+      }
+    });
+
+    return () => {
+      subCapture.remove();
+      subStartBurst.remove();
+      subStopBurst.remove();
+      if (burstIntervalRef.current) clearInterval(burstIntervalRef.current);
+    };
   }, []);
 
-  const takePicture = async () => {
-    triggerShutterFeedback();
-
+  const takePicture = async (isBurst = false) => {
+    if (!isBurst) {
+      triggerShutterFeedback();
+    }
+    
     if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.9,
           base64: false,
         });
+
+        // Play audio exactly when capture resolves (synchronized with native flash/freeze)
+        playShutterSound();
 
         if (photo?.uri) {
           const uri = photo.uri;
@@ -214,15 +261,24 @@ export default function ScanScreen() {
             }
           }
 
-          const note = await createProcessingNote(savedPath, 'Captured Photo', 'Analyzing text...');
-          await trackUsage('batch_image_saved');
-          processNote(note.id, savedPath);
-          DeviceEventEmitter.emit('PHOTO_SAVED', { uri: savedPath });
+          if (isBurst) {
+            setBurstPhotos((prev) => [...prev, savedPath]);
+          } else {
+            setActiveScanPhoto(savedPath);
+          }
         }
       } catch (error) {
         console.error('Capture error:', error);
       }
     }
+  };
+
+  const handleSaveScan = async (uri: string) => {
+    const note = await createProcessingNote(uri, 'Captured Photo', 'Analyzing text...');
+    await trackUsage('batch_image_saved');
+    processNote(note.id, uri);
+    DeviceEventEmitter.emit('PHOTO_SAVED', { uri: uri });
+    setActiveScanPhoto(null);
   };
 
   const handlePickFromGallery = async () => {
@@ -249,11 +305,8 @@ export default function ScanScreen() {
           }
         }
 
-        const note = await createProcessingNote(savedPath, 'Imported Lecture Photo', 'Analyzing text...');
-        await trackUsage('batch_image_saved');
-        processNote(note.id, savedPath);
-        DeviceEventEmitter.emit('PHOTO_SAVED', { uri: savedPath });
-        router.push('/(tabs)/library');
+        // Send it through the exact same scanning flow as a captured photo!
+        setActiveScanPhoto(savedPath);
       }
     } catch (e) {
       console.error('Gallery pick error:', e);
@@ -309,18 +362,12 @@ export default function ScanScreen() {
         zoom={zoom}
         autofocus="on"
       >
-        {/* Shutter Screen Flash */}
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.flashOverlay, { opacity: flashAnim }]}
-        />
-
         {/* ─── TOP BAR (BORDERLESS PHOSPHOR ICONS) ─── */}
         <View style={styles.topBar}>
           {/* Flash Toggle (Borderless icon) */}
           <TouchableOpacity
             style={styles.borderlessBtn}
-            onPress={() => setFlash((f) => (f === 'off' ? 'on' : f === 'on' ? 'auto' : 'off'))}
+            onPress={() => setFlash((f) => (f === 'off' ? 'on' : 'off'))}
           >
             {flash === 'off' ? (
               <LightningSlash size={26} color="#FFFFFF" weight="regular" />
@@ -408,6 +455,30 @@ export default function ScanScreen() {
         {/* ─── BOTTOM DECK (Clean spacing for bottom tab bar) ─── */}
         <View style={styles.bottomDeck} />
       </CameraView>
+
+      {/* ─── OVERLAYS ─── */}
+      {activeScanPhoto && (
+        <ScannerOverlay
+          photoUri={activeScanPhoto}
+          onCancel={() => setActiveScanPhoto(null)}
+          onSave={() => handleSaveScan(activeScanPhoto)}
+        />
+      )}
+
+      {showBatchSelector && burstPhotos.length > 0 && (
+        <BatchSelector
+          photos={burstPhotos}
+          onCancel={() => {
+            setShowBatchSelector(false);
+            setBurstPhotos([]);
+          }}
+          onSelect={(uri) => {
+            setShowBatchSelector(false);
+            setBurstPhotos([]); // Clear burst photos so tab bar works
+            setActiveScanPhoto(uri);
+          }}
+        />
+      )}
 
 
     </View>

@@ -13,6 +13,7 @@ import {
   View,
   Animated,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -22,8 +23,10 @@ import {
   X,
   CaretRight,
   Images,
+  Trash,
+  Check,
 } from 'phosphor-react-native';
-import { DEFAULT_CATEGORIES, DEFAULT_NOTES, getCategories, getNotes } from '@/services/notes';
+import { DEFAULT_CATEGORIES, DEFAULT_NOTES, getCategories, getNotes, deleteNotes } from '@/services/notes';
 import { Category, Note } from '@/types';
 import TactileButton from '@/components/TactileButton';
 
@@ -31,7 +34,7 @@ const { width } = Dimensions.get('window');
 const HORIZONTAL_PADDING = 16;
 const GAP = 10;
 const COLUMN_COUNT = 3;
-const THUMB_SIZE = (width - HORIZONTAL_PADDING * 2 - GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
+const THUMB_SIZE = Math.floor((width - HORIZONTAL_PADDING * 2 - GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT);
 
 export default function LibraryScreen() {
   const [notes, setNotes] = useState<Note[]>(DEFAULT_NOTES);
@@ -42,6 +45,10 @@ export default function LibraryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const searchAnim = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
+
+  // Selection Mode State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
 
   const openSearch = () => {
     setShowSearch(true);
@@ -115,6 +122,51 @@ export default function LibraryScreen() {
     loadData();
   };
 
+  const handleLongPressPhoto = (id: string) => {
+    setIsSelectionMode(true);
+    setSelectedNoteIds(new Set([id]));
+  };
+
+  const handlePressPhoto = (id: string) => {
+    if (isSelectionMode) {
+      const newSelection = new Set(selectedNoteIds);
+      if (newSelection.has(id)) {
+        newSelection.delete(id);
+        if (newSelection.size === 0) {
+          setIsSelectionMode(false);
+        }
+      } else {
+        newSelection.add(id);
+      }
+      setSelectedNoteIds(newSelection);
+    } else {
+      router.push({
+        pathname: '/note/preview',
+        params: { id },
+      });
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    Alert.alert(
+      'Delete Photos',
+      `Are you sure you want to delete ${selectedNoteIds.size} ${selectedNoteIds.size === 1 ? 'photo' : 'photos'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            await deleteNotes(Array.from(selectedNoteIds));
+            setIsSelectionMode(false);
+            setSelectedNoteIds(new Set());
+            loadData();
+          }
+        }
+      ]
+    );
+  };
+
   // Group photos by category
   const categorySections = useMemo(() => {
     let activeNotes = notes;
@@ -156,8 +208,28 @@ export default function LibraryScreen() {
     <View style={styles.container}>
       {/* ─── TOP HEADER (Photos + Minimal Action Icons) ─── */}
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Animated.View style={{ opacity: titleOpacity, flexDirection: 'row', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
+        {isSelectionMode ? (
+          <View style={[styles.headerRow, { justifyContent: 'space-between' }]}>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => {
+                setIsSelectionMode(false);
+                setSelectedNoteIds(new Set());
+              }}
+            >
+              <X size={24} color="#0F172A" weight="bold" />
+            </TouchableOpacity>
+            <Text style={styles.selectionTitle}>{selectedNoteIds.size} Selected</Text>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={handleDeleteSelected}
+            >
+              <Trash size={24} color="#EF4444" weight="bold" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.headerRow}>
+            <Animated.View style={{ opacity: titleOpacity, flexDirection: 'row', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
             <View>
               <Text style={styles.headerTitle}>Photos</Text>
               <Text style={styles.headerSubtitle}>
@@ -206,6 +278,7 @@ export default function LibraryScreen() {
             </TouchableOpacity>
           </Animated.View>
         </View>
+        )}
       </View>
 
       {/* ─── CATEGORY SECTIONS (Matching Reference Screenshot) ─── */}
@@ -245,30 +318,34 @@ export default function LibraryScreen() {
 
             {/* 3-Column Rounded Photo Grid */}
             <View style={styles.photoGrid}>
-              {catNotes.slice(0, 6).map((note) => (
-                <TouchableOpacity
-                  key={note.id}
-                  style={styles.photoCard}
-                  activeOpacity={0.88}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/note/preview',
-                      params: { id: note.id },
-                    })
-                  }
-                >
-                  {note.image_url ? (
-                    <Image
-                      source={{ uri: note.image_url }}
-                      style={styles.photoImage}
-                    />
-                  ) : (
-                    <View style={styles.photoPlaceholder}>
-                      <Camera size={24} color="#D1D5DB" weight="light" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+              {catNotes.slice(0, 6).map((note) => {
+                const isSelected = selectedNoteIds.has(note.id);
+                return (
+                  <TouchableOpacity
+                    key={note.id}
+                    style={styles.photoCard}
+                    activeOpacity={0.88}
+                    onLongPress={() => handleLongPressPhoto(note.id)}
+                    onPress={() => handlePressPhoto(note.id)}
+                  >
+                    {note.image_url ? (
+                      <Image
+                        source={{ uri: note.image_url }}
+                        style={styles.photoImage}
+                      />
+                    ) : (
+                      <View style={styles.photoPlaceholder}>
+                        <Camera size={24} color="#D1D5DB" weight="light" />
+                      </View>
+                    )}
+                    {isSelectionMode && (
+                      <View style={[styles.selectionOverlay, isSelected && styles.selectionOverlayActive]}>
+                        {isSelected && <Check size={16} color="#FFFFFF" weight="bold" />}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         ))}
@@ -293,30 +370,34 @@ export default function LibraryScreen() {
             </View>
 
             <View style={styles.photoGrid}>
-              {unsortedNotes.slice(0, 6).map((note) => (
-                <TouchableOpacity
-                  key={note.id}
-                  style={styles.photoCard}
-                  activeOpacity={0.88}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/note/preview',
-                      params: { id: note.id },
-                    })
-                  }
-                >
-                  {note.image_url ? (
-                    <Image
-                      source={{ uri: note.image_url }}
-                      style={styles.photoImage}
-                    />
-                  ) : (
-                    <View style={styles.photoPlaceholder}>
-                      <Camera size={24} color="#D1D5DB" weight="light" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+              {unsortedNotes.slice(0, 6).map((note) => {
+                const isSelected = selectedNoteIds.has(note.id);
+                return (
+                  <TouchableOpacity
+                    key={note.id}
+                    style={styles.photoCard}
+                    activeOpacity={0.88}
+                    onLongPress={() => handleLongPressPhoto(note.id)}
+                    onPress={() => handlePressPhoto(note.id)}
+                  >
+                    {note.image_url ? (
+                      <Image
+                        source={{ uri: note.image_url }}
+                        style={styles.photoImage}
+                      />
+                    ) : (
+                      <View style={styles.photoPlaceholder}>
+                        <Camera size={24} color="#D1D5DB" weight="light" />
+                      </View>
+                    )}
+                    {isSelectionMode && (
+                      <View style={[styles.selectionOverlay, isSelected && styles.selectionOverlayActive]}>
+                        {isSelected && <Check size={16} color="#FFFFFF" weight="bold" />}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         )}
@@ -377,6 +458,12 @@ const styles = StyleSheet.create({
     padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  selectionTitle: {
+    fontSize: 18,
+    fontFamily: 'AssistantBold',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   searchBar: {
     flexDirection: 'row',
@@ -456,6 +543,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
+  },
+  selectionOverlay: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectionOverlayActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
   },
   emptyContainer: {
     alignItems: 'center',

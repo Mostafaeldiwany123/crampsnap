@@ -17,6 +17,7 @@ function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
   const currentRouteName = state.routes[state.index]?.name;
   const isCameraActive = currentRouteName === 'scan';
   const shutterAnim = useRef(new Animated.Value(1)).current;
+  const tabBarTranslateY = useRef(new Animated.Value(0)).current;
   const [latestPhotoUri, setLatestPhotoUri] = useState<string | null>(null);
 
   const fetchLatestPhoto = async () => {
@@ -42,7 +43,19 @@ function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
         fetchLatestPhoto();
       }
     });
-    return () => sub.remove();
+
+    const toggleSub = DeviceEventEmitter.addListener('TOGGLE_TAB_BAR', (visible: boolean) => {
+      Animated.timing(tabBarTranslateY, {
+        toValue: visible ? 0 : 200,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      sub.remove();
+      toggleSub.remove();
+    };
   }, []);
 
   const handleCenterButtonPress = () => {
@@ -53,22 +66,38 @@ function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
     ]).start();
 
     if (!isCameraActive) {
-      // If not currently on the Camera tab, go to the Camera tab
       navigation.navigate('scan');
     } else {
-      // If already on the Camera tab, take the image!
       DeviceEventEmitter.emit('TRIGGER_CAPTURE_PHOTO');
     }
   };
 
+  const handleCenterButtonLongPress = () => {
+    if (isCameraActive) {
+      Animated.timing(shutterAnim, { toValue: 0.85, duration: 100, useNativeDriver: true }).start();
+      DeviceEventEmitter.emit('START_BURST_CAPTURE');
+    }
+  };
+
+  const handleCenterButtonPressOut = () => {
+    if (isCameraActive) {
+      Animated.spring(shutterAnim, { toValue: 1, friction: 4, tension: 70, useNativeDriver: true }).start();
+      DeviceEventEmitter.emit('STOP_BURST_CAPTURE');
+    }
+  };
+
   return (
-    <View style={styles.tabBarWrapper} pointerEvents="box-none">
+    <Animated.View style={[styles.tabBarWrapper, { transform: [{ translateY: tabBarTranslateY }] }]} pointerEvents="box-none">
       {/* ─── ELEVATED SHUTTER BUTTON (Solid filled, no transparency, white inner disc) ─── */}
       <View style={styles.centerButtonWrapper} pointerEvents="box-none">
         <TouchableOpacity
           onPress={handleCenterButtonPress}
+          onLongPress={handleCenterButtonLongPress}
+          onPressOut={handleCenterButtonPressOut}
+          delayLongPress={300}
           activeOpacity={0.88}
           style={styles.centerTouchable}
+          pressRetentionOffset={{ top: 100, bottom: 100, left: 100, right: 100 }}
         >
           <Animated.View
             style={[
@@ -139,7 +168,7 @@ function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
