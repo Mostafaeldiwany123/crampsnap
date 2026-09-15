@@ -1,7 +1,15 @@
 {
-  "extends": "expo/tsconfig.base",
+  // Trigger IDE re-index
+  "extends": "expo/tsconfig.base.json",
   "compilerOptions": {
     "strict": true,
+    "target": "ESNext",
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     "paths": {
       "@/*": [
         "./*"
@@ -13,5 +21,9 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "supabase",
+    "node_modules"
   ]
 }
