@@ -17,8 +17,7 @@ import {
   SignOut,
   CaretRight,
   User,
-  CloudArrowUp,
-  CheckCircle,
+  CloudCheck,
 } from 'phosphor-react-native';
 import { supabase } from '@/services/supabase';
 import { getNotes } from '@/services/notes';
@@ -58,7 +57,7 @@ export default function ProfileScreen() {
       } else {
         setUser(null);
         setProfileName('College Student');
-        setProfileEmail('Guest • Offline Storage');
+        setProfileEmail('Offline Guest');
       }
     } catch (e) {
       console.error('Profile load error:', e);
@@ -132,19 +131,11 @@ export default function ProfileScreen() {
           } catch (e) {}
           setUser(null);
           setProfileName('College Student');
-          setProfileEmail('Guest • Offline Storage');
+          setProfileEmail('Offline Guest');
         },
       },
     ]);
   };
-
-  // Initials for avatar
-  const initials = profileName
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
 
   return (
     <View style={styles.container}>
@@ -158,16 +149,12 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── USER CARD ─── */}
-        <View style={styles.userCard}>
+        {/* ─── USER HERO (Seamless, no border boxes) ─── */}
+        <View style={styles.userHero}>
           <View style={styles.avatarCircle}>
-            {user ? (
-              <Text style={styles.avatarText}>{initials || 'S'}</Text>
-            ) : (
-              <User size={28} color="#FFFFFF" weight="bold" />
-            )}
+            <User size={30} color="#FFFFFF" weight="bold" />
           </View>
-          <View style={styles.userDetails}>
+          <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
               {profileName}
             </Text>
@@ -177,66 +164,100 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* ─── CLOUD SYNC / SIGN IN BUTTON (Only if guest) ─── */}
-        {!user ? (
+        {/* ─── SIGN IN BUTTON (Only if guest) ─── */}
+        {!user && (
           <TouchableOpacity
-            style={styles.cloudSyncBtn}
+            style={styles.signInBtn}
             onPress={() => setShowAuthSheet(true)}
             activeOpacity={0.85}
           >
-            <CloudArrowUp size={20} color="#FFFFFF" weight="bold" />
-            <Text style={styles.cloudSyncBtnText}>Sign In with Google</Text>
+            <Text style={styles.signInBtnText}>Sign In with Google</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={styles.syncedBadge}>
-            <CheckCircle size={16} color="#10B981" weight="fill" />
-            <Text style={styles.syncedBadgeText}>Cloud Backup Active</Text>
-          </View>
         )}
 
-        {/* ─── VAULT SECTION ─── */}
-        <Text style={styles.sectionHeading}>VAULT</Text>
-        <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={handleExportAllPDF}
-            disabled={exportingAll}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionLeft}>
-              <View style={styles.iconCircle}>
-                {exportingAll ? (
-                  <ActivityIndicator size="small" color="#0F172A" />
-                ) : (
-                  <FilePdf size={22} color="#0F172A" weight="regular" />
-                )}
-              </View>
-              <View style={styles.actionTextCol}>
-                <Text style={styles.actionTitle}>
-                  {exportingAll ? 'Generating PDF...' : 'Export Notes to PDF'}
-                </Text>
-                <Text style={styles.actionSub}>
-                  {notes.length} {notes.length === 1 ? 'note' : 'notes'} compiled
-                </Text>
-              </View>
+        <View style={styles.sectionDivider} />
+
+        {/* ─── CLEAN ACTION ROWS (Borderless list, native feel) ─── */}
+        <TouchableOpacity
+          style={styles.actionRow}
+          onPress={handleExportAllPDF}
+          disabled={exportingAll}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionLeft}>
+            <FilePdf size={24} color="#0F172A" weight="regular" />
+            <View style={styles.actionTextCol}>
+              <Text style={styles.actionTitle}>
+                {exportingAll ? 'Generating PDF...' : 'Export Notes to PDF'}
+              </Text>
+              <Text style={styles.actionSub}>
+                {notes.length} {notes.length === 1 ? 'note' : 'notes'} in vault
+              </Text>
             </View>
-            <CaretRight size={16} color="#94A3B8" weight="bold" />
-          </TouchableOpacity>
-        </View>
+          </View>
+          {exportingAll ? (
+            <ActivityIndicator size="small" color="#0F172A" />
+          ) : (
+            <CaretRight size={18} color="#94A3B8" weight="bold" />
+          )}
+        </TouchableOpacity>
 
-        {/* ─── LOG OUT (If user is signed in) ─── */}
+        <View style={styles.rowSeparator} />
+
+        {/* Cloud backup row */}
+        <TouchableOpacity
+          style={styles.actionRow}
+          onPress={() => {
+            if (!user) {
+              setShowAuthSheet(true);
+            } else {
+              Alert.alert('Cloud Backup', `Connected to ${user.email}`);
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionLeft}>
+            <CloudCheck
+              size={24}
+              color={user ? '#10B981' : '#0F172A'}
+              weight="regular"
+            />
+            <View style={styles.actionTextCol}>
+              <Text style={styles.actionTitle}>
+                {user ? 'Cloud Backup Synced' : 'Sync Notes to Cloud'}
+              </Text>
+              <Text style={styles.actionSub}>
+                {user ? 'All notes backed up' : 'Access across devices'}
+              </Text>
+            </View>
+          </View>
+          <CaretRight size={18} color="#94A3B8" weight="bold" />
+        </TouchableOpacity>
+
         {user && (
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={handleSignOut}
-            activeOpacity={0.7}
-          >
-            <SignOut size={18} color="#EF4444" weight="bold" />
-            <Text style={styles.logoutText}>Log Out</Text>
-          </TouchableOpacity>
+          <>
+            <View style={styles.rowSeparator} />
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={handleSignOut}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionLeft}>
+                <SignOut size={24} color="#EF4444" weight="regular" />
+                <View style={styles.actionTextCol}>
+                  <Text style={[styles.actionTitle, { color: '#EF4444' }]}>
+                    Log Out
+                  </Text>
+                </View>
+              </View>
+              <CaretRight size={18} color="#EF4444" weight="bold" />
+            </TouchableOpacity>
+          </>
         )}
 
-        <Text style={styles.footerText}>Version 1.0.0</Text>
+        <View style={styles.sectionDivider} />
+
+        <Text style={styles.versionText}>Version 1.0.0</Text>
       </ScrollView>
 
       {/* Auth Modal for Sign In */}
@@ -261,12 +282,12 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 56 : 38,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
     backgroundColor: '#FFFFFF',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: 'Assistant',
     fontWeight: '700',
     color: '#0F172A',
@@ -276,126 +297,70 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 110,
   },
-  // User Card
-  userCard: {
+  // Seamless User Hero (no border boxes)
+  userHero: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   avatarCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  avatarText: {
-    fontSize: 20,
-    fontFamily: 'Assistant',
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  userDetails: {
+  userInfo: {
     flex: 1,
-    justifyContent: 'center',
   },
   userName: {
-    fontSize: 19,
+    fontSize: 22,
     fontFamily: 'Assistant',
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 2,
   },
   userEmail: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Assistant',
     color: '#64748B',
   },
-  cloudSyncBtn: {
-    flexDirection: 'row',
+  signInBtn: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginBottom: 28,
+    marginBottom: 24,
   },
-  cloudSyncBtnText: {
+  signInBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontFamily: 'Assistant',
     fontWeight: '700',
   },
-  syncedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignSelf: 'flex-start',
-    marginBottom: 24,
-  },
-  syncedBadgeText: {
-    fontSize: 12,
-    fontFamily: 'Assistant',
-    fontWeight: '600',
-    color: '#065F46',
-  },
-  sectionHeading: {
-    fontSize: 11,
-    fontFamily: 'Assistant',
-    fontWeight: '700',
-    color: '#94A3B8',
-    letterSpacing: 1,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-    marginBottom: 24,
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 16,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
     paddingVertical: 16,
   },
   actionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 16,
     flex: 1,
-  },
-  iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   actionTextCol: {
     flex: 1,
@@ -408,34 +373,20 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   actionSub: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Assistant',
     color: '#64748B',
   },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 14,
-    paddingVertical: 12,
-    marginBottom: 24,
+  rowSeparator: {
+    height: 1,
+    backgroundColor: '#F8FAFC',
+    marginLeft: 40,
   },
-  logoutText: {
-    color: '#EF4444',
-    fontSize: 14,
-    fontFamily: 'Assistant',
-    fontWeight: '700',
-  },
-  footerText: {
+  versionText: {
     textAlign: 'center',
     fontSize: 12,
     fontFamily: 'Assistant',
     color: '#94A3B8',
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: 24,
   },
 });
