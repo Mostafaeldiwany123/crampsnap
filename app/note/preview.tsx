@@ -45,11 +45,6 @@ export default function NotePreviewScreen() {
   const [note, setNote] = useState<Note | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
 
-  // Entrance animations
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const imageFadeAnim = useRef(new Animated.Value(0.5)).current;
-
   const loadNote = async () => {
     if (id) {
       try {
@@ -78,29 +73,6 @@ export default function NotePreviewScreen() {
       loadNote();
     }, [id])
   );
-
-  useEffect(() => {
-    if (!loading) {
-      Animated.parallel([
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          friction: 6,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 240,
-          useNativeDriver: true,
-        }),
-        Animated.timing(imageFadeAnim, {
-          toValue: 1,
-          duration: 280,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [loading]);
 
   const displayContent = note?.content || content || '';
   const isSaved = !!note || !!id;
@@ -196,9 +168,9 @@ export default function NotePreviewScreen() {
       {/* ─── TOP HERO IMAGE (Fixed 35% Height - Fits Screen) ─── */}
       <View style={styles.heroContainer}>
         {note?.image_url ? (
-          <Animated.Image
+          <Image
             source={{ uri: note.image_url }}
-            style={[styles.heroImage, { opacity: imageFadeAnim }]}
+            style={styles.heroImage}
             resizeMode="cover"
           />
         ) : (
@@ -209,34 +181,16 @@ export default function NotePreviewScreen() {
         <View style={styles.heroTopBar}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.frostedBtn}
+            style={{ padding: 8 }}
             activeOpacity={0.8}
           >
-            <CaretLeft size={22} color="#FFFFFF" weight="bold" />
+            <CaretLeft size={28} color="#FFFFFF" weight="bold" />
           </TouchableOpacity>
-
-          {note?.image_url && (
-            <TouchableOpacity
-              onPress={() => setFullscreenImage(true)}
-              style={styles.frostedBtn}
-              activeOpacity={0.8}
-            >
-              <ArrowsOut size={18} color="#FFFFFF" weight="bold" />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
       {/* ─── SLIDE-UP DETAIL CARD (Fits viewport cleanly without page scroll) ─── */}
-      <Animated.View
-        style={[
-          styles.detailCard,
-          {
-            transform: [{ translateY: slideAnim }],
-            opacity: opacityAnim,
-          },
-        ]}
-      >
+      <View style={styles.detailCard}>
         {/* Pull Handle */}
         <View style={styles.handleBar} />
 
@@ -379,26 +333,7 @@ export default function NotePreviewScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </Animated.View>
-
-      {/* ─── FULLSCREEN LIGHTBOX MODAL ─── */}
-      <Modal visible={fullscreenImage} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <TouchableOpacity
-            style={styles.closeModalBtn}
-            onPress={() => setFullscreenImage(false)}
-          >
-            <X size={22} color="#FFFFFF" weight="bold" />
-          </TouchableOpacity>
-          {note?.image_url && (
-            <Image
-              source={{ uri: note.image_url }}
-              style={styles.fullscreenImg}
-              resizeMode="contain"
-            />
-          )}
-        </View>
-      </Modal>
+      </View>
     </View>
   );
 }

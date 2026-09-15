@@ -1,5 +1,4 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+
 import { useFonts } from 'expo-font';
 import { Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -45,7 +44,6 @@ export default function RootLayout() {
     AssistantSemiBold: Assistant_600SemiBold,
     AssistantBold: Assistant_700Bold,
     AssistantExtraBold: Assistant_800ExtraBold,
-    ...FontAwesome.font,
   });
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
@@ -72,13 +70,11 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="note/preview" options={{ headerShown: false }} />
-        <Stack.Screen name="collection/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
-      </Stack>
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="note/preview" options={{ headerShown: false }} />
+      <Stack.Screen name="collection/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
+    </Stack>
   );
 }

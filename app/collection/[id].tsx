@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Camera } from 'phosphor-react-native';
+import { ArrowLeft, Camera, Images } from 'phosphor-react-native';
 import Colors from '@/constants/Colors';
 import { getCategories, getNotes } from '@/services/notes';
 import { Category, Note } from '@/types';
@@ -110,7 +110,7 @@ export default function CollectionDetailScreen() {
 
         <TouchableOpacity
           style={styles.cameraBtn}
-          onPress={() => router.push('/(tabs)')}
+          onPress={() => router.push('/(tabs)/scan')}
         >
           <Camera size={22} color="#111827" weight="regular" />
         </TouchableOpacity>
@@ -134,13 +134,8 @@ export default function CollectionDetailScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No Photos in this Subject</Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              onPress={() => router.push('/(tabs)')}
-            >
-              <Text style={styles.emptyBtnText}>Open Camera</Text>
-            </TouchableOpacity>
+            <Images size={42} color="#CBD5E1" weight="light" />
+            <Text style={styles.emptyText}>No photos yet</Text>
           </View>
         }
       />
@@ -211,23 +206,15 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingTop: 60,
+    justifyContent: 'center',
+    paddingTop: 120,
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: 'AssistantBold',
-    color: '#6B7280',
-    marginBottom: 16,
-  },
-  emptyBtn: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  emptyBtnText: {
-    color: '#FFFFFF',
-    fontFamily: 'AssistantBold',
-    fontSize: 13,
+    fontFamily: 'Assistant',
+    fontWeight: '300',
+    color: '#94A3B8',
+    marginTop: 16,
+    letterSpacing: 0.5,
   },
 });

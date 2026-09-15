@@ -1,9 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { withLayoutContext } from 'expo-router';
-import {
-  createMaterialTopTabNavigator,
-  MaterialTopTabNavigationOptions,
-} from '@react-navigation/material-top-tabs';
+import { Tabs } from 'expo-router';
 import {
   View,
   Platform,
@@ -17,18 +13,9 @@ import {
 import { Images, User } from 'phosphor-react-native';
 import { getNotes, DEFAULT_NOTES } from '@/services/notes';
 
-const { Navigator } = createMaterialTopTabNavigator();
-
-export const MaterialTopTabs = withLayoutContext<
-  MaterialTopTabNavigationOptions,
-  typeof Navigator,
-  any,
-  any
->(Navigator);
-
 function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
   const currentRouteName = state.routes[state.index]?.name;
-  const isCameraActive = currentRouteName === 'index' || currentRouteName === 'scan';
+  const isCameraActive = currentRouteName === 'scan';
   const shutterAnim = useRef(new Animated.Value(1)).current;
   const [latestPhotoUri, setLatestPhotoUri] = useState<string | null>(null);
 
@@ -67,7 +54,7 @@ function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
 
     if (!isCameraActive) {
       // If not currently on the Camera tab, go to the Camera tab
-      navigation.navigate('index');
+      navigation.navigate('scan');
     } else {
       // If already on the Camera tab, take the image!
       DeviceEventEmitter.emit('TRIGGER_CAPTURE_PHOTO');
@@ -158,25 +145,23 @@ function CustomConcentricTabBar({ state, descriptors, navigation }: any) {
 
 export default function TabLayout() {
   return (
-    <MaterialTopTabs
-      tabBarPosition="bottom"
-      initialRouteName="index"
+    <Tabs
+      initialRouteName="scan"
       tabBar={(props) => <CustomConcentricTabBar {...props} />}
       screenOptions={{
-        tabBarShowLabel: false,
-        tabBarIndicatorStyle: { height: 0, backgroundColor: 'transparent' },
+        headerShown: false,
       }}
     >
-      <MaterialTopTabs.Screen name="library" />
-      <MaterialTopTabs.Screen name="index" />
-      <MaterialTopTabs.Screen name="profile" />
-      <MaterialTopTabs.Screen
-        name="scan"
+      <Tabs.Screen name="library" />
+      <Tabs.Screen name="scan" />
+      <Tabs.Screen name="profile" />
+      <Tabs.Screen
+        name="index"
         options={{
-          tabBarItemStyle: { display: 'none' },
+          href: null,
         }}
       />
-    </MaterialTopTabs>
+    </Tabs>
   );
 }
 
@@ -191,7 +176,7 @@ const styles = StyleSheet.create({
   },
   centerButtonWrapper: {
     position: 'absolute',
-    top: -28,
+    top: -52,
     zIndex: 1000,
     alignItems: 'center',
     justifyContent: 'center',
@@ -210,11 +195,6 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 9,
   },
   centerInnerDot: {
     width: 60,

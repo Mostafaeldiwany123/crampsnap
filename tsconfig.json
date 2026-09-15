@@ -1,6 +1,6 @@
 {
   // Trigger IDE re-index
-  "extends": "expo/tsconfig.base.json",
+  "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
     "target": "ESNext",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -11,6 +11,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Animated,
+  Keyboard,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -38,6 +40,44 @@ export default function LibraryScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const searchAnim = useRef(new Animated.Value(0)).current;
+  const searchInputRef = useRef<TextInput>(null);
+
+  const openSearch = () => {
+    setShowSearch(true);
+    Animated.timing(searchAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+    
+    // Focus immediately
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 50);
+  };
+
+  const closeSearch = () => {
+    Keyboard.dismiss();
+    Animated.timing(searchAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start(() => {
+      setShowSearch(false);
+      setSearchQuery('');
+    });
+  };
+
+  const searchWidth = searchAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  const titleOpacity = searchAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0, 0],
+  });
 
   const router = useRouter();
 
@@ -117,51 +157,64 @@ export default function LibraryScreen() {
       {/* ─── TOP HEADER (Photos + Minimal Action Icons) ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          {/* Main Title & Count */}
-          <View>
-            <Text style={styles.headerTitle}>Photos</Text>
-            <Text style={styles.headerSubtitle}>
-              {notes.length} lecture captures &bull; Study Vault
-            </Text>
-          </View>
+          <Animated.View style={{ opacity: titleOpacity, flexDirection: 'row', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
+            <View>
+              <Text style={styles.headerTitle}>Photos</Text>
+              <Text style={styles.headerSubtitle}>
+                {notes.length} {notes.length === 1 ? 'photo' : 'photos'}
+              </Text>
+            </View>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={openSearch}
+                activeOpacity={0.7}
+              >
+                <MagnifyingGlass size={22} color="#0F172A" weight="regular" />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
 
-          {/* Right Borderless Icon: Search */}
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => setShowSearch((s) => !s)}
-              activeOpacity={0.7}
-            >
-              <MagnifyingGlass size={22} color="#0F172A" weight="regular" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Expandable Clean Search Bar */}
-        {showSearch && (
-          <View style={styles.searchBar}>
-            <MagnifyingGlass size={16} color="#9CA3AF" weight="regular" />
+          {/* Absolute positioned search bar expands from right to left */}
+          <Animated.View
+            style={[
+              styles.searchBar,
+              {
+                width: searchWidth,
+                overflow: 'hidden',
+                marginTop: 0,
+                position: 'absolute',
+                right: 0,
+                backgroundColor: '#FFFFFF', // cover the icons underneath
+                zIndex: 10,
+              }
+            ]}
+          >
+            <View style={{ paddingLeft: 4 }}>
+              <MagnifyingGlass size={16} color="#9CA3AF" weight="regular" />
+            </View>
             <TextInput
-              style={styles.searchInput}
+              ref={searchInputRef}
+              style={[styles.searchInput, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
               placeholder="Search lectures, whiteboards, notes..."
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
-              autoFocus
             />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <X size={16} color="#9CA3AF" weight="bold" />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+            <TouchableOpacity onPress={() => closeSearch()} style={{ paddingRight: 4, height: 42, justifyContent: 'center' }}>
+              <X size={16} color="#9CA3AF" weight="bold" />
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       </View>
 
       {/* ─── CATEGORY SECTIONS (Matching Reference Screenshot) ─── */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          categorySections.length === 0 && unsortedNotes.length === 0 && { flexGrow: 1, justifyContent: 'center' }
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -271,21 +324,8 @@ export default function LibraryScreen() {
         {/* Empty State when no photos exist */}
         {categorySections.length === 0 && unsortedNotes.length === 0 && (
           <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Images size={38} color="#94A3B8" weight="regular" />
-            </View>
-            <Text style={styles.emptyTitle}>No Lecture Photos Yet</Text>
-            <Text style={styles.emptySub}>
-              Tap the camera button in the center below to capture notes and whiteboards.
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyActionBtn}
-              onPress={() => router.push('/(tabs)')}
-              activeOpacity={0.8}
-            >
-              <Camera size={18} color="#FFFFFF" weight="bold" />
-              <Text style={styles.emptyActionText}>Take First Photo</Text>
-            </TouchableOpacity>
+            <Images size={48} color="#CBD5E1" weight="light" />
+            <Text style={styles.emptyTitle}>No photos yet</Text>
           </View>
         )}
 
@@ -302,7 +342,7 @@ const styles = StyleSheet.create({
   },
   // Header
   header: {
-    paddingTop: Platform.OS === 'ios' ? 54 : 36,
+    paddingTop: Platform.OS === 'ios' ? 84 : 64, // Pushed down further
     paddingHorizontal: HORIZONTAL_PADDING,
     paddingBottom: 12,
     backgroundColor: '#FFFFFF',
@@ -311,6 +351,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    position: 'relative', // so absolute children anchor to this
+    height: 48,
   },
   headerTitle: {
     fontSize: 28,
@@ -339,12 +381,12 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 4,
     height: 42,
     gap: 8,
-    marginTop: 12,
   },
   searchInput: {
     flex: 1,
@@ -418,49 +460,15 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 70,
     paddingHorizontal: 24,
-  },
-  emptyIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
+    paddingTop: 80, // Push down
   },
   emptyTitle: {
-    fontSize: 18,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 6,
-  },
-  emptySub: {
-    fontSize: 13,
+    fontSize: 16,
     fontFamily: 'Assistant',
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 20,
-    maxWidth: 260,
-  },
-  emptyActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  emptyActionText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
+    fontWeight: '300',
+    color: '#94A3B8',
+    marginTop: 16,
+    letterSpacing: 0.5,
   },
 });
