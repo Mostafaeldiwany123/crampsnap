@@ -60,7 +60,11 @@ export default function RootLayout() {
   }, [loaded]);
 
   if (!loaded) {
-    return <Slot />;
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="small" color="#FFFFFF" />
+      </View>
+    );
   }
 
   return <RootLayoutNav />;

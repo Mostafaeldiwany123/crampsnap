@@ -90,11 +90,11 @@ Return STRICT JSON:
 
         console.log(`Note ${noteId} processed successfully.`);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error processing note:", error);
         await updateNote(noteId, {
-            status: 'failed',
-            content: 'Failed to process image. Please try again or edit manually.'
+            status: 'completed',
+            content: error?.message || 'Note saved without AI analysis. Enter your OpenRouter API key in Profile settings to enable AI transcription.'
         });
     }
 };

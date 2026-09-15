@@ -1,26 +1,19 @@
-import { supabase } from './supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const USAGE_LOGS_KEY = 'college_app_usage_logs';
 
 export const trackUsage = async (event: string, metadata: any = {}) => {
-    try {
-        // Only track if Supabase is properly initialized
-        if (!supabase) {
-            console.log('Usage tracking skipped (Supabase not configured):', event);
-            return;
-        }
-
-        const { error } = await supabase
-            .from('usage_logs')
-            .insert([
-                {
-                    event_type: event,
-                    metadata,
-                    platform: typeof window !== 'undefined' ? 'web' : 'mobile'
-                }
-            ]);
-
-        if (error) console.warn('Usage tracking error:', error.message);
-    } catch (e) {
-        // Silently fail tracking to not break user experience
-        console.error('Usage tracking failed:', e);
-    }
+  try {
+    const raw = await AsyncStorage.getItem(USAGE_LOGS_KEY);
+    const logs = raw ? JSON.parse(raw) : [];
+    logs.unshift({
+      event,
+      metadata,
+      timestamp: new Date().toISOString(),
+    });
+    // Keep last 50 events locally
+    await AsyncStorage.setItem(USAGE_LOGS_KEY, JSON.stringify(logs.slice(0, 50)));
+  } catch (e) {
+    console.log('Usage tracking local note:', event);
+  }
 };

@@ -28,9 +28,7 @@ import {
 } from 'phosphor-react-native';
 import { createProcessingNote, getNotes } from '@/services/notes';
 import { processNote } from '@/services/processor';
-import { supabase } from '@/services/supabase';
 import { trackUsage } from '@/services/usage';
-import AuthBottomSheet from '@/components/AuthBottomSheet';
 
 const { width } = Dimensions.get('window');
 
@@ -54,13 +52,6 @@ export default function ScanScreen() {
   const shutterScale = useRef(new Animated.Value(1)).current;
   const flashAnim = useRef(new Animated.Value(0)).current;
   const thumbScale = useRef(new Animated.Value(1)).current;
-
-  // Auth
-  const [authLoading, setAuthLoading] = useState(false);
-  const [guestMode, setGuestMode] = useState(false);
-  const [showAuthSheet, setShowAuthSheet] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [aiScanEnabled, setAiScanEnabled] = useState(true);
 
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
@@ -152,23 +143,9 @@ export default function ScanScreen() {
   );
 
   useEffect(() => {
-    supabase?.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    const { data: { subscription } } = supabase?.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setShowAuthSheet(false);
-        setAuthLoading(false);
-      }
-    }) ?? { data: { subscription: null } };
-
     if (permission && !permission.granted && permission.canAskAgain) {
       requestPermission();
     }
-
-    return () => subscription?.unsubscribe();
   }, [permission]);
 
   const triggerShutterFeedback = () => {
@@ -205,10 +182,6 @@ export default function ScanScreen() {
   };
 
   const handleShutterPress = () => {
-    if (!user && !guestMode) {
-      setShowAuthSheet(true);
-      return;
-    }
     takePicture();
   };
 
@@ -217,7 +190,7 @@ export default function ScanScreen() {
       handleShutterPress();
     });
     return () => sub.remove();
-  }, [user, guestMode]);
+  }, []);
 
   const takePicture = async () => {
     triggerShutterFeedback();
@@ -290,23 +263,7 @@ export default function ScanScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setAuthLoading(true);
-    try {
-      const { error } = (await supabase?.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'https://oulpfyypwmaiewtnuggn.supabase.co/auth/v1/callback',
-          skipBrowserRedirect: false,
-        },
-      })) ?? { error: new Error('Supabase not configured') };
 
-      if (error) throw error;
-    } catch (error: any) {
-      Alert.alert('Sign In Error', error.message);
-      setAuthLoading(false);
-    }
-  };
 
   if (!permission) {
     return (
@@ -437,13 +394,7 @@ export default function ScanScreen() {
         <View style={styles.bottomDeck} />
       </CameraView>
 
-      <AuthBottomSheet
-        isVisible={showAuthSheet && !user && !guestMode}
-        onClose={() => setShowAuthSheet(false)}
-        onGoogleSignIn={handleGoogleSignIn}
-        onContinueAsGuest={() => setGuestMode(true)}
-        isLoading={authLoading}
-      />
+
     </View>
   );
 }
