@@ -24,7 +24,7 @@ import {
   CaretRight,
   Images,
   Trash,
-  Check,
+  Check
 } from 'phosphor-react-native';
 import { DEFAULT_CATEGORIES, DEFAULT_NOTES, getCategories, getNotes, deleteNotes } from '@/services/notes';
 import { Category, Note } from '@/types';
@@ -237,6 +237,13 @@ export default function LibraryScreen() {
               </Text>
             </View>
             <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.agentTextBtn}
+                onPress={() => router.push('/agent')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.agentBtnText}>AI Agent</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.headerIconBtn}
                 onPress={openSearch}
@@ -458,6 +465,20 @@ const styles = StyleSheet.create({
     padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  agentTextBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  agentBtnText: {
+    fontSize: 14,
+    fontFamily: 'AssistantBold',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   selectionTitle: {
     fontSize: 18,

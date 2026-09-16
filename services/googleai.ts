@@ -11,6 +11,7 @@ export interface AIModelOption {
 }
 
 export const AVAILABLE_MODELS: AIModelOption[] = [
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Main & Fastest (Recommended)' },
   { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', description: 'Newest Flash (Intro pricing)' },
   { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', description: 'Latest Flash' },
   { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', description: 'Flash (GA)' },
@@ -21,7 +22,9 @@ export const AVAILABLE_MODELS: AIModelOption[] = [
   { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash-Lite', description: 'High-volume workhorse' },
 ];
 
-export const DEFAULT_MODEL_ID = 'gemini-3.5-flash-lite';
+export const DEFAULT_MODEL_ID = 'gemini-2.5-flash';
+
+const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
 export const getGoogleAIApiKey = async (): Promise<string> => {
   try {
@@ -43,14 +46,11 @@ export const setGoogleAIApiKey = async (key: string): Promise<void> => {
 
 export const getGoogleAIModel = async (): Promise<string> => {
   try {
-    let model = await AsyncStorage.getItem(GOOGLEAI_MODEL_STORAGE);
-    
-    // Auto-migrate models that are dead for new API keys
-    if (model === 'gemini-2.5-flash-lite') model = 'gemini-3.5-flash-lite';
-    if (model === 'gemini-2.5-flash') model = 'gemini-3.5-flash';
-    if (model === 'gemini-2.5-pro') model = 'gemini-3.1-pro-preview';
-    
-    return model || DEFAULT_MODEL_ID;
+    const model = await AsyncStorage.getItem(GOOGLEAI_MODEL_STORAGE);
+    if (model && AVAILABLE_MODELS.some(m => m.id === model)) {
+      return model;
+    }
+    return DEFAULT_MODEL_ID;
   } catch (e) {
     return DEFAULT_MODEL_ID;
   }
@@ -94,6 +94,86 @@ const recordAISuccess = async (modelUsed: string) => {
   } catch (e) {}
 };
 
+/**
+ * Execute Gemini generateContent with automatic fallback and zero-latency thinking config
+ */
+export const executeGenerateContent = async (
+  apiKey: string,
+  primaryModel: string,
+  basePayload: any,
+  timeoutMs: number = 18000
+): Promise<{ text: string; modelUsed: string }> => {
+  const modelsToTry = [primaryModel, ...FALLBACK_MODELS.filter(m => m !== primaryModel)];
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    const payload = JSON.parse(JSON.stringify(basePayload));
+    // For 2.5 flash models, disable thinking budget for instant output
+    if (model.includes('2.5-flash') && payload.generationConfig) {
+      payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (data.error) {
+        // If thinkingConfig is not supported on this specific model/tier, retry without it
+        if (data.error.message?.includes('thinkingConfig')) {
+          delete payload.generationConfig.thinkingConfig;
+          const retryRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            }
+          );
+          const retryData = await retryRes.json();
+          if (retryData.candidates?.[0]?.content?.parts?.[0]?.text) {
+            return { text: retryData.candidates[0].content.parts[0].text, modelUsed: model };
+          }
+        }
+        throw new Error(data.error.message || `Google AI Error: ${data.error.code || response.status}`);
+      }
+
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error('No content returned from Google AI Studio.');
+      }
+
+      return { text, modelUsed: model };
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      const msg = error?.message || '';
+      console.warn(`[GoogleAI] Model ${model} issue: ${msg}. Trying fallback...`);
+
+      // If invalid API key, fail immediately without trying fallbacks
+      if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid')) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error('Google AI failed to generate a response. Please check your network or API key.');
+};
+
 export const chatWithAI = async (prompt: string, base64Image?: string, schema?: any) => {
   const apiKey = await getGoogleAIApiKey();
   if (!apiKey) {
@@ -114,45 +194,80 @@ export const chatWithAI = async (prompt: string, base64Image?: string, schema?: 
     });
   }
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: parts,
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: 'application/json',
-            ...(schema ? { responseSchema: schema } : {})
-          },
-        }),
-      }
-    );
+  const payload = {
+    contents: [{ parts }],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: 'application/json',
+      ...(schema ? { responseSchema: schema } : {}),
+    },
+  };
 
-    const data = await response.json();
-
-    if (data.error) {
-      throw new Error(data.error.message || 'Google AI Studio Error');
-    }
-
-    if (!data.candidates || data.candidates.length === 0) {
-        throw new Error('No content returned from Google AI Studio.');
-    }
-
-    // Record success in local analytics
-    await recordAISuccess(modelId);
-
-    return data.candidates[0].content.parts[0].text;
-  } catch (error) {
-    console.error('Google AI Studio API Error:', error);
-    throw error;
-  }
+  const { text, modelUsed } = await executeGenerateContent(apiKey, modelId, payload);
+  await recordAISuccess(modelUsed).catch(() => {});
+  return text;
 };
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
+}
+
+export const chatWithLibraryAgent = async (
+  history: ChatMessage[],
+  libraryContext: string
+): Promise<string> => {
+  const apiKey = await getGoogleAIApiKey();
+  if (!apiKey) {
+    throw new Error('Google AI API Key is missing. Please enter your API key in the Profile tab.');
+  }
+
+  const modelId = await getGoogleAIModel();
+
+  const systemInstruction = `You are CramSnap Agent, an intelligent academic AI assistant inside a student's photo notes app.
+You have access to the user's library of captured notes, whiteboards, and documents.
+Your goal is to answer their questions about their notes, explain concepts, find specific information, or summarize topics.
+
+LIBRARY CONTEXT:
+${libraryContext}
+
+INSTRUCTIONS:
+1. Format ALL responses using clean Markdown. Use **bold** for key terms, bullet lists for multiple items, headings (##) for sections if needed, and inline \`code\` for technical terms.
+2. For ALL mathematical expressions, equations, formulas, and math symbols, you MUST use standard KaTeX / LaTeX syntax:
+   - Use inline math with single dollar signs: \`$formula$\` (e.g. \`$E = mc^2$\`, \`$f(x) = \\frac{1}{x}$\`, \`$\\alpha + \\beta = 90^\\circ$\`)
+   - Use display/block math with double dollar signs on their own lines: \`$$formula$$\` (e.g. \`$$\\int_{a}^{b} f(x)dx = F(b) - F(a)$$\`, \`$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\`)
+   - NEVER use plain text fractions like "x / y" or plain text superscripts when explaining math; always use proper KaTeX formatting.
+3. Keep responses clear, concise, and well-organized. Output your response directly.
+4. If the user asks for a specific note or image, you MUST output the exact tag [NOTE:note_id] in your response (e.g. "Here is the note: [NOTE:12345-abcde]"). The app will render the image inline.
+5. Do NOT put a [NOTE:...] tag inside a markdown code block or math block. Place it in regular prose.
+6. If you can't find the answer in the library context, politely answer using your general knowledge or state that it wasn't found in their notes.`;
+
+  const contents = history.map(msg => ({
+    role: msg.role,
+    parts: [{ text: msg.content }]
+  }));
+
+  const payload = {
+    system_instruction: { parts: [{ text: systemInstruction }] },
+    contents: contents,
+    generationConfig: {
+      temperature: 0.3,
+    },
+  };
+
+  const { text, modelUsed } = await executeGenerateContent(apiKey, modelId, payload);
+  await recordAISuccess(modelUsed).catch(() => {});
+  return text;
+};
+
+// Backward-compatible wrapper
+export const streamChatWithLibraryAgent = async (
+  history: ChatMessage[],
+  libraryContext: string,
+  onUpdate: (text: string) => void
+): Promise<string> => {
+  const text = await chatWithLibraryAgent(history, libraryContext);
+  onUpdate(text);
+  return text;
+};
+
