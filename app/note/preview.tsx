@@ -10,8 +10,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { printToFileAsync } from 'expo-print';
@@ -20,15 +23,15 @@ import {
   CaretLeft,
   ShareNetwork,
   Trash,
-  FilePdf,
   Copy,
+  FilePdf,
   Check,
   ArrowsOut,
   X,
   CaretRight,
   CheckCircle,
 } from 'phosphor-react-native';
-import { deleteNote, getCategories, getNote } from '@/services/notes';
+import { deleteNote, getCategories, getNote, updateNote } from '@/services/notes';
 import { trackUsage } from '@/services/usage';
 import { Category, Note } from '@/types';
 
@@ -44,6 +47,7 @@ export default function NotePreviewScreen() {
   const [fullscreenImage, setFullscreenImage] = useState(false);
   const [note, setNote] = useState<Note | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
+  const [editUserNote, setEditUserNote] = useState('');
 
   const loadNote = async () => {
     if (id) {
@@ -52,6 +56,7 @@ export default function NotePreviewScreen() {
         const foundNote = await getNote(id);
         if (foundNote) {
           setNote(foundNote);
+          setEditUserNote(foundNote.user_note || '');
           if (foundNote.category_id) {
             const cats = await getCategories();
             const cat = cats.find((c) => c.id === foundNote.category_id);
@@ -71,55 +76,28 @@ export default function NotePreviewScreen() {
   useFocusEffect(
     useCallback(() => {
       loadNote();
+
+      const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+        Keyboard.dismiss();
+      });
+
+      return () => {
+        hideSubscription.remove();
+      };
     }, [id])
   );
 
   const displayContent = note?.content || content || '';
   const isSaved = !!note || !!id;
 
-  const handleExportPDF = async () => {
-    setExporting(true);
-    try {
-      const html = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <title>${note?.title || 'Lecture Note'}</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                padding: 40px;
-                color: #0f172a;
-                max-width: 800px;
-                margin: 0 auto;
-                line-height: 1.65;
-              }
-              h1 { font-size: 26px; margin-bottom: 8px; color: #0f172a; font-weight: 700; }
-              .meta { color: #64748b; font-size: 13px; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
-              img { max-width: 100%; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-              .body-box { background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; white-space: pre-wrap; font-size: 15px; color: #1e293b; line-height: 1.7; }
-            </style>
-          </head>
-          <body>
-            <h1>${note?.title || 'College Lecture Note'}</h1>
-            <div class="meta">Archived in Study Vault &bull; ${new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</div>
-            ${note?.image_url ? `<img src="${note.image_url}" />` : ''}
-            <div class="body-box">${displayContent}</div>
-          </body>
-        </html>
-      `;
-
-      const { uri } = await printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-      await trackUsage('export_pdf');
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      Alert.alert('Export Error', 'Failed to export PDF.');
-    } finally {
-      setExporting(false);
+  const handleUpdateUserNote = async (text: string) => {
+    setEditUserNote(text);
+    if (note?.id) {
+      await updateNote(note.id, { user_note: text });
     }
   };
+
+
 
   const handleDelete = () => {
     if (!note?.id) return;
@@ -164,7 +142,10 @@ export default function NotePreviewScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior="padding"
+    >
       {/* ─── TOP HERO IMAGE (Fixed 35% Height - Fits Screen) ─── */}
       <View style={styles.heroContainer}>
         {note?.image_url ? (
@@ -194,7 +175,13 @@ export default function NotePreviewScreen() {
         {/* Pull Handle */}
         <View style={styles.handleBar} />
 
-        {/* 1. Header: Avatar/Thumbnail + Title + Subject Pill */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* 1. Header: Avatar/Thumbnail + Title + Subject Pill */}
         <View style={styles.cardHeader}>
           <View style={styles.avatarThumbnailWrapper}>
             {note?.image_url ? (
@@ -220,6 +207,14 @@ export default function NotePreviewScreen() {
               </View>
             )}
           </View>
+
+          <TouchableOpacity
+            onPress={() => setFullscreenImage(true)}
+            style={styles.fullscreenBtn}
+            activeOpacity={0.7}
+          >
+            <ArrowsOut size={20} color="#64748B" weight="bold" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.divider} />
@@ -227,7 +222,7 @@ export default function NotePreviewScreen() {
         {/* 2. Status & Quick Actions Row */}
         <View style={styles.statusAndActionsRow}>
           <View style={styles.statusMetaCol}>
-            <Text style={styles.metaLabel}>VAULT STATUS</Text>
+            <Text style={styles.metaLabel}>Vault status</Text>
             <Text style={styles.metaValue}>Digitized &bull; {new Date(note?.created_at || Date.now()).toLocaleDateString(undefined, {
               month: 'short',
               day: 'numeric',
@@ -250,19 +245,6 @@ export default function NotePreviewScreen() {
 
             <TouchableOpacity
               style={styles.quickActionBtn}
-              onPress={handleExportPDF}
-              disabled={exporting}
-              activeOpacity={0.7}
-            >
-              {exporting ? (
-                <ActivityIndicator size="small" color="#0F172A" />
-              ) : (
-                <FilePdf size={18} color="#334155" weight="regular" />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionBtn}
               onPress={() => {
                 if (typeof navigator !== 'undefined' && (navigator as any).share) {
                   (navigator as any).share({ title: note?.title, text: displayContent });
@@ -279,40 +261,42 @@ export default function NotePreviewScreen() {
 
         <View style={styles.divider} />
 
-        {/* 3. Extracted Lecture Notes Content Box (Flexible & fits screen) */}
+        {/* 3. Personal Notes Section */}
         <View style={styles.contentBoxSection}>
-          <Text style={styles.contentSectionHeading}>LECTURE NOTES</Text>
+          <Text style={styles.contentSectionHeading}>Personal notes</Text>
+          <View style={styles.contentContainer}>
+            <TextInput
+              style={styles.contentText}
+              multiline
+              value={editUserNote}
+              onChangeText={handleUpdateUserNote}
+              placeholder="Add your personal notes..."
+              placeholderTextColor="#94A3B8"
+              underlineColorAndroid="transparent"
+              textAlignVertical="top"
+            />
+          </View>
+        </View>
+
+        {/* 4. AI Analysis Section */}
+        <View style={styles.contentBoxSection}>
+          <Text style={styles.contentSectionHeading}>AI Analysis</Text>
           <View style={styles.contentContainer}>
             <ScrollView
               style={styles.internalScroll}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
             >
-              <Text style={styles.contentText}>
-                {displayContent || 'No lecture notes extracted for this capture.'}
+              <Text style={styles.contentTextReadOnly}>
+                {displayContent || 'No AI analysis available.'}
               </Text>
             </ScrollView>
           </View>
         </View>
 
-        {/* 4. Bottom Compact Action Rows */}
+        {/* 5. Bottom Compact Action Rows */}
         <View style={styles.actionList}>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={handleExportPDF}
-            disabled={exporting}
-            activeOpacity={0.65}
-          >
-            <View style={styles.actionRowLeft}>
-              <View style={styles.actionIconCircle}>
-                <FilePdf size={16} color="#0F172A" weight="bold" />
-              </View>
-              <Text style={styles.actionRowLabel}>
-                {exporting ? 'Generating PDF...' : 'Export as PDF Document'}
-              </Text>
-            </View>
-            <CaretRight size={15} color="#94A3B8" weight="regular" />
-          </TouchableOpacity>
+
 
           {isSaved && (
             <TouchableOpacity
@@ -332,9 +316,27 @@ export default function NotePreviewScreen() {
               <CaretRight size={15} color="#EF4444" weight="regular" />
             </TouchableOpacity>
           )}
-        </View>
+          </View>
+        </ScrollView>
       </View>
-    </View>
+
+      {/* Fullscreen Image Modal */}
+      <Modal visible={fullscreenImage} transparent={true} animationType="fade" statusBarTranslucent={true}>
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={styles.closeModalBtn}
+            onPress={() => setFullscreenImage(false)}
+          >
+            <X size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Image
+            source={{ uri: note?.image_url }}
+            style={styles.fullscreenImg}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -460,6 +462,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     marginVertical: 8,
   },
+  fullscreenBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   // Status & Actions Row
   statusAndActionsRow: {
     flexDirection: 'row',
@@ -525,10 +532,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentText: {
-    fontSize: 13,
+    flex: 1,
+    fontSize: 14,
     fontFamily: 'Assistant',
     color: '#1E293B',
-    lineHeight: 20,
+    lineHeight: 22,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+    margin: 0,
+    includeFontPadding: false,
+  },
+  contentTextReadOnly: {
+    fontSize: 14,
+    fontFamily: 'Assistant',
+    color: '#1E293B',
+    lineHeight: 22,
   },
   // Bottom Action List
   actionList: {
@@ -580,7 +600,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   fullscreenImg: {
-    width: width,
-    height: '85%',
+    width: '100%',
+    height: '100%',
   },
 });

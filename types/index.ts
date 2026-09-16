@@ -2,6 +2,7 @@ export interface Note {
     id: string;
     title: string;
     content: string; // Markdown or structured JSON
+    user_note?: string; // Manual user notes
     category_id?: string;
     created_at: string;
     image_url?: string; // Local or remote URL

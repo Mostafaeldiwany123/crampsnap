@@ -89,7 +89,7 @@ export const deleteNotes = async (ids: string[]) => {
 export const createProcessingNote = async (
   imageUri: string,
   initialTitle?: string,
-  initialContent?: string
+  initialUserNote?: string
 ): Promise<Note> => {
   try {
     const raw = await AsyncStorage.getItem(NOTES_KEY);
@@ -97,8 +97,9 @@ export const createProcessingNote = async (
 
     const newNote: Note = {
       id: uuid.v4().toString(),
-      title: initialTitle || 'Class Lecture Note',
-      content: initialContent || 'Processing lecture note...',
+      title: initialTitle || 'Processing...',
+      content: 'Analyzing text...',
+      user_note: initialUserNote || '',
       created_at: new Date().toISOString(),
       status: 'processing',
       image_url: imageUri,

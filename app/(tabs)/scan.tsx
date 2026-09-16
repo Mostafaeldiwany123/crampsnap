@@ -273,8 +273,8 @@ export default function ScanScreen() {
     }
   };
 
-  const handleSaveScan = async (uri: string) => {
-    const note = await createProcessingNote(uri, 'Captured Photo', 'Analyzing text...');
+  const handleSaveScan = async (uri: string, manualNote?: string) => {
+    const note = await createProcessingNote(uri, 'Captured Photo', manualNote || 'Analyzing text...');
     await trackUsage('batch_image_saved');
     processNote(note.id, uri);
     DeviceEventEmitter.emit('PHOTO_SAVED', { uri: uri });
@@ -461,7 +461,7 @@ export default function ScanScreen() {
         <ScannerOverlay
           photoUri={activeScanPhoto}
           onCancel={() => setActiveScanPhoto(null)}
-          onSave={() => handleSaveScan(activeScanPhoto)}
+          onSave={(catId, manualNote) => handleSaveScan(activeScanPhoto, manualNote)}
         />
       )}
 

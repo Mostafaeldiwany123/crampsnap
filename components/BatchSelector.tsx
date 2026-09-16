@@ -34,16 +34,14 @@ export default function BatchSelector({ photos, onSelect, onCancel }: BatchSelec
     <View style={styles.container}>
       <View style={styles.backdrop} />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>
           <X size={24} color="#FFFFFF" weight="regular" />
         </TouchableOpacity>
         <Text style={styles.title}>Select Best Photo</Text>
-        <View style={{ width: 40 }} /> {/* spacer */}
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Carousel */}
       <View style={styles.carouselContainer}>
         <FlatList
           data={photos}
@@ -58,8 +56,6 @@ export default function BatchSelector({ photos, onSelect, onCancel }: BatchSelec
           }}
         />
       </View>
-
-      {/* Slider Indicators (Dots) */}
       <View style={styles.dotsContainer}>
         {photos.map((_, i) => (
           <View
@@ -71,8 +67,6 @@ export default function BatchSelector({ photos, onSelect, onCancel }: BatchSelec
           />
         ))}
       </View>
-
-      {/* Footer Action */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.selectBtn}

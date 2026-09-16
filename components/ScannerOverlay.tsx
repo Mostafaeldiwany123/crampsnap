@@ -6,10 +6,15 @@ import {
   StyleSheet,
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   Platform,
+  KeyboardAvoidingView,
+  Modal,
+  ScrollView,
+  Keyboard,
 } from 'react-native';
-import { Check, TextAa, Tag, BookOpen, X } from 'phosphor-react-native';
+import { Check, TextAa, Tag, BookOpen, X, ArrowsOut } from 'phosphor-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,6 +43,8 @@ export default function ScannerOverlay({ photoUri, onCancel, onSave }: ScannerOv
   const panelOpacityAnim = useRef(new Animated.Value(0)).current;
   
   const [isScanning, setIsScanning] = useState(true);
+  const [manualNote, setManualNote] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     // 1. Initial Shrink for Scanning
@@ -129,6 +136,13 @@ export default function ScannerOverlay({ photoUri, onCancel, onSave }: ScannerOv
         ])
       ).start();
     });
+
+    // Keyboard listener to fix focus bug on Android
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      Keyboard.dismiss(); // Forces input to blur when keyboard closes
+    });
+
+    return () => hideSubscription.remove();
   }, []);
 
   const laserTranslateY = laserAnim.interpolate({
@@ -137,7 +151,10 @@ export default function ScannerOverlay({ photoUri, onCancel, onSave }: ScannerOv
   });
 
   return (
-    <View style={styles.overlayContainer}>
+    <KeyboardAvoidingView 
+      style={styles.overlayContainer}
+      behavior="padding"
+    >
       <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
 
       {/* ─── SHRUNK IMAGE + LASER ─── */}
@@ -190,26 +207,50 @@ export default function ScannerOverlay({ photoUri, onCancel, onSave }: ScannerOv
           <View style={styles.handleBar} />
 
           <View style={styles.panelHeader}>
-            <Text style={styles.metaLabel}>EXTRACTION COMPLETE</Text>
+            <Text style={styles.metaLabel}>Extraction complete</Text>
           </View>
           
-          <View style={styles.mockDataContainer}>
+          <ScrollView 
+            style={styles.mockDataContainer}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }} // Extra padding pushes input higher when keyboard is open
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.mockHeaderRow}>
-              <View style={styles.avatarThumbnailWrapper}>
+              <TouchableOpacity style={styles.avatarThumbnailWrapper} onPress={() => setIsFullscreen(true)} activeOpacity={0.8}>
                 <Image source={{ uri: photoUri }} style={styles.avatarThumbnail} />
-              </View>
-              <View>
-                <Text style={styles.mockTitle}>Thermodynamics Lecture 4</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.mockTitle}>Captured Photo</Text>
                 <Text style={styles.metaValue}>Digitized &bull; Just now</Text>
               </View>
+              <TouchableOpacity style={styles.fullscreenBtn} onPress={() => setIsFullscreen(true)}>
+                <ArrowsOut size={20} color="#64748B" weight="bold" />
+              </TouchableOpacity>
             </View>
             
             <View style={styles.divider} />
 
-            <Text style={styles.contentSectionHeading}>LECTURE NOTES</Text>
-            <View style={styles.contentContainer}>
-              <Text style={styles.contentText} numberOfLines={3}>
-                "The First Law of Thermodynamics states that energy cannot be created or destroyed, only transformed from one form to another..."
+            <Text style={styles.contentSectionHeading}>Personal notes</Text>
+            <View style={[styles.contentContainer, { flex: 1 }]}>
+              <TextInput
+                style={styles.contentText}
+                multiline
+                value={manualNote}
+                onChangeText={setManualNote}
+                placeholder="Add your own notes here while AI extracts..."
+                placeholderTextColor="#94A3B8"
+                underlineColorAndroid="transparent"
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <Text style={styles.contentSectionHeading}>AI Analysis</Text>
+            <View style={[styles.contentContainer, { flex: 1 }]}>
+              <Text style={styles.contentTextReadOnly}>
+                AI extraction will begin in the background once you save this capture.
               </Text>
             </View>
             
@@ -233,16 +274,33 @@ export default function ScannerOverlay({ photoUri, onCancel, onSave }: ScannerOv
                   <Text style={styles.cancelBtnText}>Discard</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.saveBtn} onPress={() => onSave()} activeOpacity={0.8}>
+                <TouchableOpacity style={styles.saveBtn} onPress={() => onSave(undefined, manualNote)} activeOpacity={0.8}>
                   <Text style={styles.saveBtnText}>Save</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-          </View>
+          </ScrollView>
         </Animated.View>
       )}
-    </View>
+
+      {/* Fullscreen Image Modal */}
+      <Modal visible={isFullscreen} transparent={true} animationType="fade" statusBarTranslucent={true}>
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={styles.closeModalBtn}
+            onPress={() => setIsFullscreen(false)}
+          >
+            <X size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Image
+            source={{ uri: photoUri }}
+            style={styles.fullscreenImg}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -310,6 +368,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    height: height * 0.65, // Match preview.tsx height
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -342,6 +401,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   mockDataContainer: {
+    flex: 1,
     marginBottom: 8,
   },
   mockHeaderRow: {
@@ -396,10 +456,24 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   contentText: {
-    fontSize: 13,
+    flex: 1,
+    fontSize: 14,
     fontFamily: 'Assistant',
     color: '#1E293B',
-    lineHeight: 20,
+    lineHeight: 22,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+    margin: 0,
+    includeFontPadding: false,
+  },
+  contentTextReadOnly: {
+    fontSize: 14,
+    fontFamily: 'Assistant',
+    color: '#94A3B8',
+    lineHeight: 22,
+    minHeight: 60,
     fontStyle: 'italic',
   },
   
@@ -451,5 +525,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'AssistantBold',
     fontWeight: '700',
-  }
+  },
+  fullscreenBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.94)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeModalBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 56 : 36,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  fullscreenImg: {
+    width: '100%',
+    height: '100%',
+  },
 });
