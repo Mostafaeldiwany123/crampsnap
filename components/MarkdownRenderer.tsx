@@ -34,13 +34,13 @@ export const MarkdownRenderer = React.memo(({ content }: MarkdownRendererProps) 
     }
     body {
       font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
-      font-size: 15px;
+      font-size: 14px;
       color: #111827;
-      line-height: 1.6;
+      line-height: 1.5;
       padding: 0;
       margin: 0;
       background-color: transparent;
-      padding-bottom: 20px; /* Ensure bottom doesn't get cut off */
+      padding-bottom: 20px;
     }
     
     ::-webkit-scrollbar {
@@ -74,12 +74,10 @@ export const MarkdownRenderer = React.memo(({ content }: MarkdownRendererProps) 
       padding: 0;
     }
 
-    h1, h2, h3, h4, h5, h6 {
-      color: #111827;
-      margin-top: 1.5em;
-      margin-bottom: 0.5em;
-      font-weight: 700;
-    }
+    h1 { font-size: 16px; color: #111827; margin-top: 1em; margin-bottom: 0.25em; font-weight: 700; }
+    h2 { font-size: 14px; color: #111827; margin-top: 0.8em; margin-bottom: 0.2em; font-weight: 700; }
+    h3 { font-size: 13px; color: #374151; margin-top: 0.7em; margin-bottom: 0.15em; font-weight: 600; }
+    h4, h5, h6 { font-size: 13px; color: #374151; margin-top: 0.5em; margin-bottom: 0.1em; font-weight: 600; }
     
     /* Remove top margin from very first element to avoid big gap */
     #content-container > *:first-child {
@@ -92,7 +90,7 @@ export const MarkdownRenderer = React.memo(({ content }: MarkdownRendererProps) 
     }
 
     p {
-      margin-bottom: 1em;
+      margin-bottom: 0.6em;
     }
 
     /* Math rendering fixes */
