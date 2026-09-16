@@ -59,6 +59,9 @@ export default function ScanScreen() {
   const thumbScale = useRef(new Animated.Value(1)).current;
 
   const cameraRef = useRef<CameraView>(null);
+  const cameraReadyRef = useRef(false);
+  const captureInFlightRef = useRef(false);
+  const isBurstingRef = useRef(false);
   const router = useRouter();
   
   // Moved useEffect down
@@ -203,24 +206,25 @@ export default function ScanScreen() {
 
     const subStartBurst = DeviceEventEmitter.addListener('START_BURST_CAPTURE', () => {
       setIsBursting(true);
+      isBurstingRef.current = true;
       setBurstPhotos([]);
-      // Take first photo immediately
+      // Take first photo immediately; the loop self-schedules the rest
+      // after each capture completes (never overlapping the camera).
       takePicture(true);
-      burstIntervalRef.current = setInterval(() => {
-        takePicture(true);
-      }, 600);
     });
 
     const subStopBurst = DeviceEventEmitter.addListener('STOP_BURST_CAPTURE', () => {
-      setIsBursting((prev) => {
-        if (prev) {
-          setTimeout(() => setShowBatchSelector(true), 200); // slight delay to allow last photo to resolve
+      isBurstingRef.current = false;
+      setIsBursting(false);
+      // Wait for any in-flight capture to finish, then show the batch selector
+      // so every bursted photo is included.
+      const waitForCapture = async () => {
+        while (captureInFlightRef.current) {
+          await new Promise((r) => setTimeout(r, 100));
         }
-        return false;
-      });
-      if (burstIntervalRef.current) {
-        clearInterval(burstIntervalRef.current);
-      }
+        setTimeout(() => setShowBatchSelector(true), 150);
+      };
+      waitForCapture();
     });
 
     return () => {
@@ -235,11 +239,23 @@ export default function ScanScreen() {
     if (!isBurst) {
       triggerShutterFeedback();
     }
-    
+
+    // Guard: camera not mounted/ready yet, or a capture is still in flight.
+    // This prevents overlapping native captures (the 'Failed to capture image' error).
+    if (!cameraReadyRef.current || captureInFlightRef.current) {
+      if (!isBurst) {
+        Alert.alert('Camera not ready', 'Please wait a moment and try again.');
+      }
+      return;
+    }
+
+    captureInFlightRef.current = true;
     if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.9,
+          // Burst uses slightly lower quality: faster capture + smaller file copy
+          // (slides are high-contrast text; 0.7 is plenty for AI extraction).
+          quality: isBurst ? 0.7 : 0.9,
           base64: false,
         });
 
@@ -248,8 +264,11 @@ export default function ScanScreen() {
 
         if (photo?.uri) {
           const uri = photo.uri;
-          setLastPhotoUri(uri);
-          animateThumbnail();
+          // Skip UI churn during burst so the capture loop stays fast.
+          if (!isBurst) {
+            setLastPhotoUri(uri);
+            animateThumbnail();
+          }
 
           let savedPath = uri;
           if (Platform.OS !== 'web') {
@@ -263,6 +282,14 @@ export default function ScanScreen() {
 
           if (isBurst) {
             setBurstPhotos((prev) => [...prev, savedPath]);
+            // Self-scheduling burst loop: only schedule the next shot AFTER
+            // this capture completed, and only while bursting is active.
+            if (isBurstingRef.current) {
+              // Fast inter-shot delay: still fires AFTER the previous capture
+              // completed, so captures never overlap (no regression to the
+              // 'Failed to capture image' error).
+              setTimeout(() => takePicture(true), 250);
+            }
           } else {
             const note = await createProcessingNote(savedPath);
             processNote(note.id, savedPath); // Trigger AI immediately
@@ -271,7 +298,11 @@ export default function ScanScreen() {
         }
       } catch (error) {
         console.error('Capture error:', error);
+      } finally {
+        captureInFlightRef.current = false;
       }
+    } else {
+      captureInFlightRef.current = false;
     }
   };
 
@@ -375,6 +406,9 @@ export default function ScanScreen() {
         enableTorch={flash === 'on'}
         zoom={zoom}
         autofocus="on"
+        onCameraReady={() => {
+          cameraReadyRef.current = true;
+        }}
       />
 
       {/* ─── UI OVERLAY (absolutely positioned on top of CameraView) ─── */}
