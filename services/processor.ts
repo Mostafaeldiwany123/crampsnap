@@ -1,5 +1,5 @@
 import { getCategories, saveCategory, updateNote, getNote } from '@/services/notes';
-import { chatWithAI } from '@/services/openrouter';
+import { chatWithAI } from '@/services/googleai';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
@@ -32,32 +32,40 @@ export const processNote = async (noteId: string, imageUri: string) => {
         const categoriesContext = categories.map(c => `- ${c.name}: ${c.description || 'No description'}`).join('\n');
 
         const prompt = `
-You are CramSnap, an intelligent AI that analyzes captured whiteboard notes, documents, and slides for college students.
-
-Your tasks:
-1. **Analyze the content** and generate a concise title and a short description.
-2. **Perform AI Extraction**: Extract the full key points, formulas, or text and format beautifully in Markdown.
-3. **Generate Tags**: Provide an array of string tags relevant to the subject.
-4. **Categorize the note**: Evaluate the content against the user's existing categories. If it fits, use the exact name. If it doesn't fit well, create a new relevant category name.
-
-User's Existing Categories:
-${categoriesContext || 'No existing categories. Create a new one.'}
-
-Return STRICT JSON matching this schema:
-{
-  "title": "Short title",
-  "description": "Brief 1-2 sentence description",
-  "ai_extraction": "Detailed markdown content",
-  "tags": ["tag1", "tag2"],
-  "category": {
-    "name": "Category Name",
-    "description": "Category Description"
-  }
-}
+You are an intelligent note extractor for college students.
+Tasks:
+1. Provide a short, clear title (e.g. "Newton's Laws of Motion") and 1-sentence description.
+2. Extract all notes, math, and key points in beautiful Markdown with headers, bullet points, and code blocks where appropriate.
+3. Provide 3-5 relevant lowercase tags as strings (e.g. "calculus", "derivatives").
+4. Categorize the note. IMPORTANT category naming rules:
+   - Use 2-4 descriptive words for the subject area (e.g. "Organic Chemistry", "Linear Algebra", "Data Structures", "World War II History").
+   - NEVER use a single generic word like "Math", "Science", or "History" alone.
+   - If content matches an existing category name EXACTLY, reuse it. Otherwise create a new descriptive one.
+   Existing categories: ${categoriesContext || 'None — create a descriptive new category.'}
+Output instantly without any reasoning or thinking tokens.
 `;
 
-        const responseText = await chatWithAI(prompt, base64);
-        console.log("OpenRouter Response:", responseText);
+        const schema = {
+          type: "OBJECT",
+          properties: {
+            title: { type: "STRING" },
+            description: { type: "STRING" },
+            ai_extraction: { type: "STRING" },
+            tags: { type: "ARRAY", items: { type: "STRING" } },
+            category: { 
+              type: "OBJECT", 
+              properties: { 
+                name: { type: "STRING" }, 
+                description: { type: "STRING" } 
+              },
+              required: ["name", "description"]
+            }
+          },
+          required: ["title", "description", "ai_extraction", "tags", "category"]
+        };
+
+        const responseText = await chatWithAI(prompt, base64, schema);
+        console.log("Google AI Studio Response:", responseText);
 
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("No JSON found in response");
@@ -98,7 +106,7 @@ Return STRICT JSON matching this schema:
         console.error("Error processing note:", error);
         await updateNote(noteId, {
             status: 'completed',
-            content: error?.message || 'Note saved without AI analysis. Enter your OpenRouter API key in Profile settings to enable AI transcription.'
+            content: error?.message || 'Note saved without AI analysis. Enter your Google AI Studio API key in Profile settings to enable AI transcription.'
         });
     }
 };

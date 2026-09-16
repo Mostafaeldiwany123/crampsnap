@@ -117,7 +117,7 @@ export default function ScannerOverlay({ photoUri, noteId, onCancel, onSave }: S
             <Image 
               source={{ uri: photoUri }} 
               style={StyleSheet.absoluteFill} 
-              resizeMode="cover" 
+              resizeMode={imgAspect > 1 ? 'contain' : 'cover'} 
             />
           </Animated.View>
         </Animated.View>
@@ -137,17 +137,25 @@ export default function ScannerOverlay({ photoUri, noteId, onCancel, onSave }: S
     );
   }
 
-  // ─── 2. COMPLETED VIEW (Matches preview.tsx layout & styling exactly) ───
+  // ─── 2. COMPLETED VIEW ───
+  // For landscape images, shrink the hero height to match aspect ratio exactly (no black bars)
+  const heroHeight = imgAspect > 1
+    ? Math.min(Math.round(width / imgAspect), Math.round(height * 0.38))
+    : Math.round(height * 0.32);
+
   return (
     <KeyboardAvoidingView style={styles.completedContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      {/* Top Hero Image */}
-      <View style={styles.heroContainer}>
+      <View style={[styles.heroContainer, { height: heroHeight }]}>
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => setIsFullscreen(true)}
           style={{ flex: 1 }}
         >
-          <Image source={{ uri: photoUri }} style={styles.heroImage} resizeMode="cover" />
+          <Image 
+            source={{ uri: photoUri }} 
+            style={styles.heroImage} 
+            resizeMode="cover" 
+          />
         </TouchableOpacity>
 
         <View style={styles.heroTopBar}>
