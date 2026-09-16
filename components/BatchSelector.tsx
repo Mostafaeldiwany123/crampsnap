@@ -8,6 +8,7 @@ import {
   Platform,
   Dimensions,
   FlatList,
+  Animated,
 } from 'react-native';
 import { Check, X } from 'phosphor-react-native';
 
@@ -128,8 +129,7 @@ const styles = StyleSheet.create({
     height: '90%', // Leave room top and bottom
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#1E293B',
-    shadowColor: '#000',
+    backgroundColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 20,

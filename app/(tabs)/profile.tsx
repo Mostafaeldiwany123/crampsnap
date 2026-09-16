@@ -37,7 +37,6 @@ import {
   getOpenRouterModel,
   setOpenRouterModel,
   getAIAnalytics,
-  PRESET_MODELS,
   AIAnalytics,
 } from '@/services/openrouter';
 import { Note, Category } from '@/types';
@@ -48,24 +47,21 @@ export default function ProfileScreen() {
   const [storageUsage, setStorageUsage] = useState({ bytes: 0, formatted: '0 KB' });
   const [aiAnalytics, setAiAnalytics] = useState<AIAnalytics>({ totalRequests: 0 });
 
-  // OpenRouter Config
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(PRESET_MODELS[0].id);
   const [keySaved, setKeySaved] = useState(false);
 
   const [exportingAll, setExportingAll] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const [allNotes, allCats, storage, analytics, savedKey, savedModel] =
+      const [allNotes, allCats, storage, analytics, savedKey] =
         await Promise.all([
           getNotes(),
           getCategories(),
           getStorageUsage(),
           getAIAnalytics(),
           getOpenRouterApiKey(),
-          getOpenRouterModel(),
         ]);
 
       setNotes(allNotes);
@@ -73,7 +69,6 @@ export default function ProfileScreen() {
       setStorageUsage(storage);
       setAiAnalytics(analytics);
       setApiKey(savedKey || '');
-      setSelectedModel(savedModel);
     } catch (e) {
       console.error('Failed to load profile & analytics data:', e);
     }
@@ -89,11 +84,6 @@ export default function ProfileScreen() {
     await setOpenRouterApiKey(apiKey);
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
-  };
-
-  const handleSelectModel = async (modelId: string) => {
-    setSelectedModel(modelId);
-    await setOpenRouterModel(modelId);
   };
 
   const handleExportAllPDF = async () => {
@@ -251,45 +241,6 @@ export default function ProfileScreen() {
               <Text style={styles.saveKeyBtnText}>Save</Text>
             )}
           </TouchableOpacity>
-        </View>
-
-        {/* Model Selection */}
-        <Text style={styles.subHeading}>AI VISION MODEL</Text>
-        <View style={styles.chipsContainer}>
-          {PRESET_MODELS.map((model) => {
-            const isSelected = selectedModel === model.id;
-            return (
-              <TouchableOpacity
-                key={model.id}
-                style={[styles.modelChip, isSelected && styles.modelChipSelected]}
-                onPress={() => handleSelectModel(model.id)}
-                activeOpacity={0.75}
-              >
-                <View style={styles.chipHeader}>
-                  <Text
-                    style={[
-                      styles.modelChipName,
-                      isSelected && styles.modelChipNameSelected,
-                    ]}
-                  >
-                    {model.name}
-                  </Text>
-                  {isSelected && (
-                    <Sparkle size={14} color="#FFFFFF" weight="fill" />
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.modelChipDesc,
-                    isSelected && styles.modelChipDescSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {model.description}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
         </View>
 
         <View style={styles.divider} />
@@ -472,42 +423,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Assistant',
     fontWeight: '700',
-  },
-  // Chips
-  chipsContainer: {
-    gap: 8,
-  },
-  modelChip: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  modelChipSelected: {
-    backgroundColor: '#0F172A',
-  },
-  chipHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  modelChipName: {
-    fontSize: 15,
-    fontFamily: 'Assistant',
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  modelChipNameSelected: {
-    color: '#FFFFFF',
-  },
-  modelChipDesc: {
-    fontSize: 12,
-    fontFamily: 'Assistant',
-    color: '#64748B',
-  },
-  modelChipDescSelected: {
-    color: '#CBD5E1',
   },
   // Actions
   actionRow: {

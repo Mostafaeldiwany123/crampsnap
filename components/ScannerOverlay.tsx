@@ -13,276 +13,255 @@ import {
   Modal,
   ScrollView,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
-import { Check, TextAa, Tag, BookOpen, X, ArrowsOut } from 'phosphor-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import MarkdownRenderer from './MarkdownRenderer';
+import { Check, X, ArrowsOut } from 'phosphor-react-native';
+import { getNote, deleteNote } from '@/services/notes';
+import { Note } from '@/types';
 
 const { width, height } = Dimensions.get('window');
 
 interface ScannerOverlayProps {
   photoUri: string;
-  onCancel: () => void;
-  onSave: (categoryId?: string, manualNote?: string) => void;
+  noteId: string;
+  onCancel: (noteId: string) => void;
+  onSave: (noteId: string, manualNote?: string) => void;
 }
 
-export default function ScannerOverlay({ photoUri, onCancel, onSave }: ScannerOverlayProps) {
-  // 1. Image Animations
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const translateYAnim = useRef(new Animated.Value(0)).current;
-  const borderAnim = useRef(new Animated.Value(0)).current;
-  
-  // 2. Scanning Laser
-  const laserAnim = useRef(new Animated.Value(0)).current;
-  const scanOpacityAnim = useRef(new Animated.Value(1)).current;
-  
-  // 3. Backdrop Fade & Image Tint
-  const backdropOpacity = useRef(new Animated.Value(1)).current;
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-
-  // 4. AI Panel Slide up
-  const panelAnim = useRef(new Animated.Value(height * 0.6)).current;
-  const panelOpacityAnim = useRef(new Animated.Value(0)).current;
-  
+export default function ScannerOverlay({ photoUri, noteId, onCancel, onSave }: ScannerOverlayProps) {
   const [isScanning, setIsScanning] = useState(true);
   const [manualNote, setManualNote] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [analyzedNote, setAnalyzedNote] = useState<Note | null>(null);
+  const [imgAspect, setImgAspect] = useState(1);
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Animation values
+  const entryScale = useRef(new Animated.Value(0.7)).current;
+  const overlayFade = useRef(new Animated.Value(0)).current;
+  const imageScale = useRef(new Animated.Value(1)).current;
+  
+  const panelSlideAnim = useRef(new Animated.Value(height * 0.6)).current;
+  const panelFadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // 1. Initial Shrink for Scanning
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 0.8,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: false, 
-      }),
-      Animated.timing(borderAnim, {
-        toValue: 32,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-      Animated.spring(translateYAnim, {
-        toValue: 0,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: false,
-      })
-    ]).start(() => {
-      // 2. Start laser scanning (up and down twice)
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(laserAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: false, 
-          }),
-          Animated.timing(laserAnim, {
-            toValue: 0,
-            duration: 800,
-            useNativeDriver: false,
-          })
-        ]),
-        { iterations: 1 } // one full up/down pass
-      ).start(() => {
-        // 3. Scan complete! Fade out laser, Restore image to fullscreen, Show Panel
-        setIsScanning(false);
-        Animated.timing(scanOpacityAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: false,
-        }).start();
+    Image.getSize(photoUri, (w, h) => {
+      setImgAspect(w / h);
+      setImgLoaded(true);
 
-        Animated.parallel([
-          Animated.spring(scaleAnim, {
-            toValue: 1, // Back to full screen
-            friction: 7,
-            tension: 50,
-            useNativeDriver: false,
-          }),
-          Animated.spring(translateYAnim, {
-            toValue: 0, 
-            friction: 7,
-            tension: 50,
-            useNativeDriver: false,
-          }),
-          Animated.timing(borderAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: false,
-          }),
-          Animated.timing(backdropOpacity, {
-            toValue: 0, // fade out black backdrop
-            duration: 400,
-            useNativeDriver: false,
-          }),
-          Animated.spring(panelAnim, {
-            toValue: 0,
-            friction: 7,
-            tension: 50,
-            useNativeDriver: false,
-          }),
-          Animated.timing(panelOpacityAnim, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: false,
-          })
-        ]).start();
+      // 1. Expand (pops out to fill viewport instantly hiding background)
+      Animated.spring(entryScale, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }).start(() => {
+        // 2. Fade in dark tint and text smoothly
+        Animated.timing(overlayFade, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+
+        // 3. Simple slow breathing animation on the image itself
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(imageScale, { toValue: 1.05, duration: 2500, useNativeDriver: true }),
+            Animated.timing(imageScale, { toValue: 1, duration: 2500, useNativeDriver: true }),
+          ])
+        ).start();
       });
-
-      // Pulse animation for the tint
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: false }),
-          Animated.timing(pulseAnim, { toValue: 0, duration: 800, useNativeDriver: false }),
-        ])
-      ).start();
     });
+  }, [photoUri]);
 
-    // Keyboard listener to fix focus bug on Android
+  // Poll for note completion
+  useEffect(() => {
+    let interval: any;
+    if (isScanning && noteId) {
+      interval = setInterval(async () => {
+        const n = await getNote(noteId);
+        if (n && (n.status === 'completed' || n.status === 'failed')) {
+          clearInterval(interval);
+          setAnalyzedNote(n);
+          setIsScanning(false);
+
+          // Smooth slide-up transition of the detail panel
+          Animated.parallel([
+            Animated.timing(panelSlideAnim, {
+              toValue: 0,
+              duration: 320,
+              useNativeDriver: true,
+            }),
+            Animated.timing(panelFadeAnim, {
+              toValue: 1,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isScanning, noteId]);
+
+
+  useEffect(() => {
     const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
-      Keyboard.dismiss(); // Forces input to blur when keyboard closes
+      Keyboard.dismiss();
     });
 
     return () => hideSubscription.remove();
   }, []);
 
-  const laserTranslateY = laserAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-(height * 0.38), height * 0.38],
-  });
+  // ─── 1. SCANNING STATE (100% Solid Black Backdrop + Sleek Shimmer) ───
+  if (isScanning) {
+    return (
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]}>
+        {/* Entry expand animation for image ONLY */}
+        <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: entryScale }] }]}>
+          {/* Slow breathing image */}
+          <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: imageScale }] }]}>
+            <Image 
+              source={{ uri: photoUri }} 
+              style={StyleSheet.absoluteFill} 
+              resizeMode="cover" 
+            />
+          </Animated.View>
+        </Animated.View>
 
+        {/* Fading overlay and text on top (independent from image scale) */}
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayFade }]} pointerEvents="none">
+          {/* Static subtle dark tint to keep text readable (No flashing) */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+
+          {/* Clean Analyzing Text (No Container) */}
+          <View style={styles.analyzingTextWrapper}>
+            <ActivityIndicator size="small" color="#FFFFFF" />
+            <Text style={styles.analyzingText}>Analyzing...</Text>
+          </View>
+        </Animated.View>
+      </View>
+    );
+  }
+
+  // ─── 2. COMPLETED VIEW (Matches preview.tsx layout & styling exactly) ───
   return (
-    <KeyboardAvoidingView 
-      style={styles.overlayContainer}
-      behavior="padding"
-    >
-      <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
+    <KeyboardAvoidingView style={styles.completedContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Top Hero Image */}
+      <View style={styles.heroContainer}>
+        <Image source={{ uri: photoUri }} style={styles.heroImage} resizeMode="cover" />
 
-      {/* ─── SHRUNK IMAGE + LASER ─── */}
+        <View style={styles.heroTopBar}>
+          <TouchableOpacity
+            onPress={() => setIsFullscreen(true)}
+            style={styles.frostedBtn}
+            activeOpacity={0.8}
+          >
+            <ArrowsOut size={22} color="#FFFFFF" weight="bold" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Slide-Up White Detail Card (Large panel with high AI Extraction area) */}
       <Animated.View
         style={[
-          styles.imageWrapper,
+          styles.detailCard,
           {
-            transform: [
-              { scale: scaleAnim },
-              { translateY: translateYAnim }
-            ],
-            borderRadius: borderAnim,
+            transform: [{ translateY: panelSlideAnim }],
+            opacity: panelFadeAnim,
           }
         ]}
       >
-        <Image source={{ uri: photoUri }} style={styles.capturedImage} />
-        
-        {isScanning && (
-          <Animated.View style={[styles.scanTint, { opacity: pulseAnim }]} pointerEvents="none" />
-        )}
+        <View style={styles.handleBar} />
 
-        {isScanning && (
-          <Animated.View
-            style={[
-              styles.laserLine,
-              { 
-                transform: [{ translateY: laserTranslateY }],
-                opacity: scanOpacityAnim 
-              }
-            ]}
-          >
-            {/* Pure white clean scanning effect */}
-            <View style={styles.laserGlow} />
-          </Animated.View>
-        )}
-      </Animated.View>
-
-      {/* ─── AI EXTRACTION PANEL (Slides up over fullscreen image) ─── */}
-      {!isScanning && (
-        <Animated.View
-          style={[
-            styles.panel,
-            { 
-              transform: [{ translateY: panelAnim }],
-              opacity: panelOpacityAnim 
-            }
-          ]}
-        >
-          {/* Handle Bar */}
-          <View style={styles.handleBar} />
-
-          <View style={styles.panelHeader}>
-            <Text style={styles.metaLabel}>Extraction complete</Text>
-          </View>
-          
-          <ScrollView 
-            style={styles.mockDataContainer}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }} // Extra padding pushes input higher when keyboard is open
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.mockHeaderRow}>
-              <TouchableOpacity style={styles.avatarThumbnailWrapper} onPress={() => setIsFullscreen(true)} activeOpacity={0.8}>
-                <Image source={{ uri: photoUri }} style={styles.avatarThumbnail} />
-              </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.mockTitle}>Captured Photo</Text>
-                <Text style={styles.metaValue}>Digitized &bull; Just now</Text>
-              </View>
-              <TouchableOpacity style={styles.fullscreenBtn} onPress={() => setIsFullscreen(true)}>
-                <ArrowsOut size={20} color="#64748B" weight="bold" />
-              </TouchableOpacity>
+        <View style={{ flex: 1, paddingBottom: 6 }}>
+          {/* 1. Header: Title + Summary + Tags */}
+          <View style={styles.cardHeader}>
+            <View style={styles.headerInfo}>
+              <Text style={styles.itemTitle} numberOfLines={2}>
+                {analyzedNote?.title || 'Captured Document'}
+              </Text>
+              {analyzedNote?.summary ? (
+                <Text style={styles.itemDescription} numberOfLines={2}>
+                  {analyzedNote.summary}
+                </Text>
+              ) : null}
+              {analyzedNote?.tags && analyzedNote.tags.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.tagsContainer}
+                >
+                  {analyzedNote.tags.map((tag, idx) => (
+                    <View key={idx} style={styles.tagPill}>
+                      <Text style={styles.tagPillText}>{tag.replace(/^#/, '')}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
             </View>
-            
-            <View style={styles.divider} />
+          </View>
 
+          <View style={styles.divider} />
+
+          {/* 2. Personal Notes Section (Compact) */}
+          <View style={styles.contentBoxSectionSmall}>
             <Text style={styles.contentSectionHeading}>Personal notes</Text>
-            <View style={[styles.contentContainer, { flex: 1 }]}>
+            <View style={styles.contentContainerSmall}>
               <TextInput
                 style={styles.contentText}
                 multiline
                 value={manualNote}
                 onChangeText={setManualNote}
-                placeholder="Add your own notes here while AI extracts..."
+                placeholder="Add your personal notes..."
                 placeholderTextColor="#94A3B8"
                 underlineColorAndroid="transparent"
                 textAlignVertical="top"
               />
             </View>
+          </View>
 
-            <View style={styles.divider} />
-
-            <Text style={styles.contentSectionHeading}>AI Analysis</Text>
-            <View style={[styles.contentContainer, { flex: 1 }]}>
-              <Text style={styles.contentTextReadOnly}>
-                AI extraction will begin in the background once you save this capture.
-              </Text>
+          {/* 3. AI Extraction Section (Maximized Height & Scrollable) */}
+          <View style={[styles.contentBoxSection, { flex: 1, marginTop: 8 }]}>
+            <Text style={styles.contentSectionHeading}>AI Extraction</Text>
+            <View style={[styles.contentContainerClean, { flex: 1 }]}>
+              <ScrollView
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
+                <MarkdownRenderer content={analyzedNote?.content || 'No text could be extracted.'} />
+              </ScrollView>
             </View>
-            
-            <View style={styles.divider} />
+          </View>
 
-            {/* Tags & Action Buttons on SAME LINE */}
-            <View style={styles.actionRow}>
-              {/* Tags Group */}
-              <View style={styles.tagsRow}>
-                <View style={styles.tag}>
-                  <Text style={styles.tagText}>Physics</Text>
-                </View>
-                <View style={styles.tag}>
-                  <Text style={styles.tagText}>Notes</Text>
-                </View>
-              </View>
+          {/* 4. Bottom Action Row */}
+          <View style={styles.bottomActionRow}>
+            <Text style={styles.bottomDateText}>
+              {new Date(analyzedNote?.created_at || Date.now()).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </Text>
 
-              {/* Action Buttons Group */}
-              <View style={styles.buttonGroup}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
-                  <Text style={styles.cancelBtnText}>Discard</Text>
-                </TouchableOpacity>
+            <View style={styles.buttonGroup}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => {
+                  deleteNote(noteId);
+                  onCancel(noteId);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelBtnText}>Discard</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity style={styles.saveBtn} onPress={() => onSave(undefined, manualNote)} activeOpacity={0.8}>
-                  <Text style={styles.saveBtnText}>Save</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={() => onSave(noteId, manualNote)}
+                activeOpacity={0.8}
+              >
+                <Check size={16} color="#FFFFFF" weight="bold" />
+                <Text style={styles.saveBtnText}>Save</Text>
+              </TouchableOpacity>
             </View>
-
-          </ScrollView>
-        </Animated.View>
-      )}
+          </View>
+        </View>
+      </Animated.View>
 
       {/* Fullscreen Image Modal */}
       <Modal visible={isFullscreen} transparent={true} animationType="fade" statusBarTranslucent={true}>
@@ -290,8 +269,9 @@ export default function ScannerOverlay({ photoUri, onCancel, onSave }: ScannerOv
           <TouchableOpacity
             style={styles.closeModalBtn}
             onPress={() => setIsFullscreen(false)}
+            activeOpacity={0.8}
           >
-            <X size={20} color="#FFFFFF" />
+            <X size={20} color="#FFFFFF" weight="bold" />
           </TouchableOpacity>
           <Image
             source={{ uri: photoUri }}
@@ -305,77 +285,98 @@ export default function ScannerOverlay({ photoUri, onCancel, onSave }: ScannerOv
 }
 
 const styles = StyleSheet.create({
-  overlayContainer: {
+  // Scanning Screen
+  scanningScreenContainer: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
   },
-  backdrop: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+  solidBackdrop: {
+    ...(StyleSheet.absoluteFill as object),
+    backgroundColor: '#000000',
   },
-  imageWrapper: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
+  scanCard: {
+    width: width * 0.88,
+    height: Math.round(height * 0.5),
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#000',
-    shadowColor: '#FFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: '#000000',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
     elevation: 20,
   },
-  capturedImage: {
+  scanImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
-  scanTint: {
+  analyzingTextWrapper: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '50%',
+    marginTop: -10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  analyzingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'AssistantBold',
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  // Completed Screen Container (Exact match to preview.tsx)
+  completedContainer: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(56, 189, 248, 0.18)', // Cyan tint
+    backgroundColor: '#000000',
+    zIndex: 9999,
   },
-  // Minimalist White Laser
-  laserLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '50%',
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    shadowColor: '#FFFFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
+  heroContainer: {
+    width: width,
+    height: height * 0.32,
+    position: 'relative',
+    backgroundColor: '#000000',
   },
-  laserGlow: {
-    position: 'absolute',
-    top: -20,
-    left: 0,
-    right: 0,
-    height: 40,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.08,
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
-  
-  // AI Panel (Styled identically to preview.tsx detailCard)
-  panel: {
+  heroTopBar: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: height * 0.65, // Match preview.tsx height
+    top: Platform.OS === 'ios' ? 48 : 32,
+    right: 18,
+    zIndex: 10,
+  },
+  frostedBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  detailCard: {
+    flex: 1,
+    width: '100%',
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    marginTop: -20,
     paddingHorizontal: 20,
     paddingTop: 10,
-    // Add safe area padding for the bottom of the screen
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24, 
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
@@ -388,68 +389,79 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#E2E8F0',
     alignSelf: 'center',
-    marginBottom: 10,
-  },
-  panelHeader: {
-    marginBottom: 12,
-  },
-  metaLabel: {
-    fontSize: 10,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
-    color: '#94A3B8',
-    letterSpacing: 0.5,
-  },
-  mockDataContainer: {
-    flex: 1,
     marginBottom: 8,
   },
-  mockHeaderRow: {
+  cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 2,
   },
-  avatarThumbnailWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+  headerInfo: {
+    flex: 1,
   },
-  avatarThumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  mockTitle: {
-    fontSize: 17,
+  itemTitle: {
+    fontSize: 21,
     fontFamily: 'AssistantBold',
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 3,
+    marginBottom: 2,
   },
-  metaValue: {
+  itemDescription: {
     fontSize: 13,
     fontFamily: 'Assistant',
-    color: '#64748B',
+    color: '#475569',
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  tagPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  tagPillText: {
+    fontSize: 12,
+    fontFamily: 'Assistant',
+    color: '#475569',
   },
   divider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginVertical: 12,
+    marginVertical: 8,
+  },
+  contentBoxSectionSmall: {
+    marginVertical: 2,
   },
   contentSectionHeading: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: 'AssistantBold',
     fontWeight: '700',
     color: '#94A3B8',
-    letterSpacing: 0.6,
-    marginBottom: 6,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  contentContainer: {
+  contentContainerSmall: {
     backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 10,
+    height: 56,
+  },
+  contentBoxSection: {
+    flex: 1,
+    marginVertical: 2,
+  },
+  contentContainerClean: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -457,83 +469,59 @@ const styles = StyleSheet.create({
   },
   contentText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Assistant',
     color: '#1E293B',
-    lineHeight: 22,
-    paddingTop: 0,
-    paddingBottom: 0,
-    paddingLeft: 0,
-    paddingRight: 0,
+    lineHeight: 18,
+    padding: 0,
     margin: 0,
     includeFontPadding: false,
   },
-  contentTextReadOnly: {
-    fontSize: 14,
-    fontFamily: 'Assistant',
-    color: '#94A3B8',
-    lineHeight: 22,
-    minHeight: 60,
-    fontStyle: 'italic',
-  },
-  
-  // Action Row (Tags + Buttons)
-  actionRow: {
+  bottomActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Tags on left, Buttons on right
-    marginTop: 4,
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 2,
   },
-  tagsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  tag: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  tagText: {
-    fontSize: 11,
+  bottomDateText: {
+    fontSize: 12,
     fontFamily: 'Assistant',
-    color: '#475569',
+    color: '#94A3B8',
   },
   buttonGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   cancelBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   cancelBtnText: {
     color: '#64748B',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'AssistantBold',
     fontWeight: '600',
   },
   saveBtn: {
     backgroundColor: '#0F172A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
   },
   saveBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'AssistantBold',
     fontWeight: '700',
   },
-  fullscreenBtn: {
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.94)',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
   },

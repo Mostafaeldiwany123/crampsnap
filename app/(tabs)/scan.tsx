@@ -64,7 +64,7 @@ export default function ScanScreen() {
   // Moved useEffect down
 
   // Burst & Scanning State
-  const [activeScanPhoto, setActiveScanPhoto] = useState<string | null>(null);
+  const [activeScanData, setActiveScanData] = useState<{ uri: string, noteId: string } | null>(null);
   const [burstPhotos, setBurstPhotos] = useState<string[]>([]);
   const [isBursting, setIsBursting] = useState(false);
   const [showBatchSelector, setShowBatchSelector] = useState(false);
@@ -72,9 +72,9 @@ export default function ScanScreen() {
 
   // Hide the tab bar when overlaying the image or batch selector
   useEffect(() => {
-    const isOverlayActive = !!activeScanPhoto || (showBatchSelector && burstPhotos.length > 0);
+    const isOverlayActive = !!activeScanData || (showBatchSelector && burstPhotos.length > 0);
     DeviceEventEmitter.emit('TOGGLE_TAB_BAR', !isOverlayActive);
-  }, [activeScanPhoto, showBatchSelector, burstPhotos.length]);
+  }, [activeScanData, showBatchSelector, burstPhotos.length]);
 
   useEffect(() => {
     loadShutterSound();
@@ -264,7 +264,9 @@ export default function ScanScreen() {
           if (isBurst) {
             setBurstPhotos((prev) => [...prev, savedPath]);
           } else {
-            setActiveScanPhoto(savedPath);
+            const note = await createProcessingNote(savedPath);
+            processNote(note.id, savedPath); // Trigger AI immediately
+            setActiveScanData({ uri: savedPath, noteId: note.id });
           }
         }
       } catch (error) {
@@ -273,12 +275,10 @@ export default function ScanScreen() {
     }
   };
 
-  const handleSaveScan = async (uri: string, manualNote?: string) => {
-    const note = await createProcessingNote(uri, 'Captured Photo', manualNote || 'Analyzing text...');
+  const handleSaveScan = async (noteId: string, uri: string, manualNote?: string) => {
     await trackUsage('batch_image_saved');
-    processNote(note.id, uri);
     DeviceEventEmitter.emit('PHOTO_SAVED', { uri: uri });
-    setActiveScanPhoto(null);
+    setActiveScanData(null);
   };
 
   const handlePickFromGallery = async () => {
@@ -306,7 +306,9 @@ export default function ScanScreen() {
         }
 
         // Send it through the exact same scanning flow as a captured photo!
-        setActiveScanPhoto(savedPath);
+        const note = await createProcessingNote(savedPath);
+        processNote(note.id, savedPath); // Trigger AI immediately
+        setActiveScanData({ uri: savedPath, noteId: note.id });
       }
     } catch (e) {
       console.error('Gallery pick error:', e);
@@ -457,11 +459,14 @@ export default function ScanScreen() {
       </CameraView>
 
       {/* ─── OVERLAYS ─── */}
-      {activeScanPhoto && (
+      {activeScanData && (
         <ScannerOverlay
-          photoUri={activeScanPhoto}
-          onCancel={() => setActiveScanPhoto(null)}
-          onSave={(catId, manualNote) => handleSaveScan(activeScanPhoto, manualNote)}
+          photoUri={activeScanData.uri}
+          noteId={activeScanData.noteId}
+          onCancel={async (id) => {
+            setActiveScanData(null);
+          }}
+          onSave={(id, manualNote) => handleSaveScan(id, activeScanData.uri, manualNote)}
         />
       )}
 
@@ -472,10 +477,13 @@ export default function ScanScreen() {
             setShowBatchSelector(false);
             setBurstPhotos([]);
           }}
-          onSelect={(uri) => {
+          onSelect={async (uri) => {
+            // Keep BatchSelector mounted until the note is ready to prevent flash
+            const note = await createProcessingNote(uri);
+            processNote(note.id, uri);
+            setActiveScanData({ uri, noteId: note.id });
             setShowBatchSelector(false);
             setBurstPhotos([]); // Clear burst photos so tab bar works
-            setActiveScanPhoto(uri);
           }}
         />
       )}

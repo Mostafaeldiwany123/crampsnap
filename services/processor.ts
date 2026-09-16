@@ -32,23 +32,26 @@ export const processNote = async (noteId: string, imageUri: string) => {
         const categoriesContext = categories.map(c => `- ${c.name}: ${c.description || 'No description'}`).join('\n');
 
         const prompt = `
-Analyze the attached image. It might be a whiteboard, a document, or a slide.
+You are CramSnap, an intelligent AI that analyzes captured whiteboard notes, documents, and slides for college students.
 
 Your tasks:
-1. **Analyze the content** and generate a concise summary/title.
-2. **Categorize the note**. 
-   - Existing categories:
-${categoriesContext}
-3. **Detail the content**. Extract key points and format as Markdown.
+1. **Analyze the content** and generate a concise title and a short description.
+2. **Perform AI Extraction**: Extract the full key points, formulas, or text and format beautifully in Markdown.
+3. **Generate Tags**: Provide an array of string tags relevant to the subject.
+4. **Categorize the note**: Evaluate the content against the user's existing categories. If it fits, use the exact name. If it doesn't fit well, create a new relevant category name.
 
-Return STRICT JSON:
+User's Existing Categories:
+${categoriesContext || 'No existing categories. Create a new one.'}
+
+Return STRICT JSON matching this schema:
 {
-  "summary": "Title",
-  "content": "Detailed markdown",
+  "title": "Short title",
+  "description": "Brief 1-2 sentence description",
+  "ai_extraction": "Detailed markdown content",
+  "tags": ["tag1", "tag2"],
   "category": {
     "name": "Category Name",
-    "description": "Category Description",
-    "isNew": boolean
+    "description": "Category Description"
   }
 }
 `;
@@ -81,9 +84,10 @@ Return STRICT JSON:
         
         // Update Note with results
         await updateNote(noteId, {
-            title: data.summary,
-            content: data.content || data.summary, // Fallback
-            summary: data.summary,
+            title: data.title || 'Captured Note',
+            content: data.ai_extraction || '', 
+            summary: data.description || '',
+            tags: data.tags || [],
             category_id: categoryId,
             status: 'completed'
         });

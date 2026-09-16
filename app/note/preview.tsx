@@ -34,6 +34,7 @@ import {
 import { deleteNote, getCategories, getNote, updateNote } from '@/services/notes';
 import { trackUsage } from '@/services/usage';
 import { Category, Note } from '@/types';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -144,7 +145,7 @@ export default function NotePreviewScreen() {
   return (
     <KeyboardAvoidingView 
       style={styles.container}
-      behavior="padding"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* ─── TOP HERO IMAGE (Fixed 35% Height - Fits Screen) ─── */}
       <View style={styles.heroContainer}>
@@ -167,6 +168,14 @@ export default function NotePreviewScreen() {
           >
             <CaretLeft size={28} color="#FFFFFF" weight="bold" />
           </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => setFullscreenImage(true)}
+            style={{ padding: 8 }}
+            activeOpacity={0.8}
+          >
+            <ArrowsOut size={24} color="#FFFFFF" weight="bold" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -175,96 +184,32 @@ export default function NotePreviewScreen() {
         {/* Pull Handle */}
         <View style={styles.handleBar} />
 
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* 1. Header: Avatar/Thumbnail + Title + Subject Pill */}
-        <View style={styles.cardHeader}>
-          <View style={styles.avatarThumbnailWrapper}>
-            {note?.image_url ? (
-              <Image source={{ uri: note.image_url }} style={styles.avatarThumbnail} />
-            ) : (
-              <View
-                style={[
-                  styles.avatarFallback,
-                  { backgroundColor: category?.color || '#0F172A' },
-                ]}
-              />
-            )}
-          </View>
-
-          <View style={styles.headerInfo}>
-            <Text style={styles.itemTitle} numberOfLines={1}>
-              {note?.title || 'Classroom Capture'}
-            </Text>
-
-            {category && (
-              <View style={styles.subjectPill}>
-                <Text style={styles.subjectPillText}>{category.name}</Text>
-              </View>
-            )}
-          </View>
-
-          <TouchableOpacity
-            onPress={() => setFullscreenImage(true)}
-            style={styles.fullscreenBtn}
-            activeOpacity={0.7}
-          >
-            <ArrowsOut size={20} color="#64748B" weight="bold" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* 2. Status & Quick Actions Row */}
-        <View style={styles.statusAndActionsRow}>
-          <View style={styles.statusMetaCol}>
-            <Text style={styles.metaLabel}>Vault status</Text>
-            <Text style={styles.metaValue}>Digitized &bull; {new Date(note?.created_at || Date.now()).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-            })}</Text>
-          </View>
-
-          {/* Quick Actions (Simple, non-annoying circular buttons) */}
-          <View style={styles.quickActionsGroup}>
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              onPress={handleCopyText}
-              activeOpacity={0.7}
-            >
-              {copied ? (
-                <Check size={18} color="#10B981" weight="bold" />
-              ) : (
-                <Copy size={18} color="#334155" weight="regular" />
+        <View style={{ flex: 1, paddingBottom: 10 }}>
+          {/* 1. Header: Title + Description + Tags */}
+          <View style={styles.cardHeader}>
+            <View style={styles.headerInfo}>
+              <Text style={styles.itemTitle}>{note?.title || 'Captured Document'}</Text>
+              {note?.summary && (
+                <Text style={styles.itemDescription}>{note.summary}</Text>
               )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              onPress={() => {
-                if (typeof navigator !== 'undefined' && (navigator as any).share) {
-                  (navigator as any).share({ title: note?.title, text: displayContent });
-                } else {
-                  handleCopyText();
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <ShareNetwork size={18} color="#334155" weight="regular" />
-            </TouchableOpacity>
+              {note?.tags && note.tags.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagsContainer}>
+                  {note.tags.map((tag, idx) => (
+                    <View key={idx} style={styles.tagPill}>
+                      <Text style={styles.tagPillText}>{tag.replace(/^#/, '')}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
           </View>
-        </View>
 
         <View style={styles.divider} />
 
-        {/* 3. Personal Notes Section */}
-        <View style={styles.contentBoxSection}>
+        {/* 2. Personal Notes Section */}
+        <View style={styles.contentBoxSectionSmall}>
           <Text style={styles.contentSectionHeading}>Personal notes</Text>
-          <View style={styles.contentContainer}>
+          <View style={styles.contentContainerSmall}>
             <TextInput
               style={styles.contentText}
               multiline
@@ -278,46 +223,57 @@ export default function NotePreviewScreen() {
           </View>
         </View>
 
-        {/* 4. AI Analysis Section */}
-        <View style={styles.contentBoxSection}>
+        {/* 3. AI Analysis Section */}
+        <View style={[styles.contentBoxSection, { flex: 1, marginTop: 12 }]}>
           <Text style={styles.contentSectionHeading}>AI Analysis</Text>
-          <View style={styles.contentContainer}>
-            <ScrollView
-              style={styles.internalScroll}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-            >
-              <Text style={styles.contentTextReadOnly}>
-                {displayContent || 'No AI analysis available.'}
-              </Text>
-            </ScrollView>
+          <View style={[styles.contentContainerClean, { flex: 1 }]}>
+              <ScrollView
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
+                <MarkdownRenderer content={displayContent || 'No extracted text.'} />
+              </ScrollView>
           </View>
         </View>
 
-        {/* 5. Bottom Compact Action Rows */}
-        <View style={styles.actionList}>
+        {/* 4. Bottom Action Row */}
+        <View style={styles.bottomActionRow}>
+          <Text style={styles.bottomDateText}>
+            {new Date(note?.created_at || Date.now()).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })}
+          </Text>
 
-
-          {isSaved && (
-            <TouchableOpacity
-              style={styles.actionRow}
-              onPress={handleDelete}
-              disabled={deleting}
-              activeOpacity={0.65}
-            >
-              <View style={styles.actionRowLeft}>
-                <View style={[styles.actionIconCircle, { backgroundColor: '#FEF2F2' }]}>
-                  <Trash size={16} color="#EF4444" weight="bold" />
-                </View>
-                <Text style={[styles.actionRowLabel, { color: '#EF4444' }]}>
-                  Delete from Vault
-                </Text>
-              </View>
-              <CaretRight size={15} color="#EF4444" weight="regular" />
+          <View style={styles.bottomActionIcons}>
+            <TouchableOpacity onPress={handleCopyText} style={styles.bottomIconBtn} activeOpacity={0.7}>
+              {copied ? <Check size={20} color="#10B981" weight="bold" /> : <Copy size={20} color="#64748B" />}
             </TouchableOpacity>
-          )}
+
+            <TouchableOpacity 
+              onPress={() => {
+                if (typeof navigator !== 'undefined' && (navigator as any).share) {
+                  (navigator as any).share({ title: note?.title, text: displayContent });
+                } else {
+                  handleCopyText();
+                }
+              }} 
+              style={styles.bottomIconBtn}
+              activeOpacity={0.7}
+            >
+              <ShareNetwork size={20} color="#64748B" />
+            </TouchableOpacity>
+
+            {isSaved && (
+              <TouchableOpacity onPress={handleDelete} disabled={deleting} style={styles.bottomIconBtn} activeOpacity={0.7}>
+                <Trash size={20} color="#EF4444" />
+              </TouchableOpacity>
+            )}
           </View>
-        </ScrollView>
+        </View>
+        </View>
       </View>
 
       {/* Fullscreen Image Modal */}
@@ -343,7 +299,7 @@ export default function NotePreviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#000000',
   },
   loadingContainer: {
     flex: 1,
@@ -351,12 +307,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Hero Image - 35% of screen height
+  // Hero Image - 32% of screen height
   heroContainer: {
     width: width,
-    height: height * 0.35,
+    height: height * 0.32,
     position: 'relative',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#000000',
   },
   heroImage: {
     width: '100%',
@@ -365,7 +321,7 @@ const styles = StyleSheet.create({
   heroPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#334155',
+    backgroundColor: '#000000',
   },
   heroTopBar: {
     position: 'absolute',
@@ -414,46 +370,41 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: 4,
-  },
-  avatarThumbnailWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  avatarThumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarFallback: {
-    width: '100%',
-    height: '100%',
   },
   headerInfo: {
     flex: 1,
   },
   itemTitle: {
-    fontSize: 17,
+    fontSize: 22,
     fontFamily: 'AssistantBold',
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 3,
+    marginBottom: 4,
   },
-  subjectPill: {
-    alignSelf: 'flex-start',
+  itemDescription: {
+    fontSize: 14,
+    fontFamily: 'Assistant',
+    color: '#475569',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  tagPill: {
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  subjectPillText: {
-    fontSize: 11,
+  tagPillText: {
+    fontSize: 12,
     fontFamily: 'Assistant',
     color: '#475569',
   },
@@ -464,69 +415,39 @@ const styles = StyleSheet.create({
   },
   fullscreenBtn: {
     padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 2,
   },
-  // Status & Actions Row
-  statusAndActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 2,
+  // Extracted Content Section
+  contentBoxSectionSmall: {
+    marginVertical: 2,
   },
-  statusMetaCol: {
+  contentContainerSmall: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 10,
+    height: 62, // Compact height for personal notes
+  },
+  contentBoxSection: {
     flex: 1,
+    marginVertical: 2,
   },
-  metaLabel: {
-    fontSize: 10,
+  contentSectionHeading: {
+    fontSize: 11,
     fontFamily: 'AssistantBold',
     fontWeight: '700',
     color: '#94A3B8',
     letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  metaValue: {
-    fontSize: 13,
-    fontFamily: 'AssistantBold',
-    fontWeight: '600',
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  quickActionsGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  quickActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  // Extracted Content Section
-  contentBoxSection: {
+  contentContainerClean: {
     flex: 1,
-    marginVertical: 4,
-  },
-  contentSectionHeading: {
-    fontSize: 10,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
-    color: '#94A3B8',
-    letterSpacing: 0.6,
-    marginBottom: 6,
-  },
-  contentContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 12,
-    minHeight: 80,
   },
   internalScroll: {
     flex: 1,
@@ -550,35 +471,28 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     lineHeight: 22,
   },
-  // Bottom Action List
-  actionList: {
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  actionRow: {
+  // Bottom Action Row
+  bottomActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    marginTop: 8,
   },
-  actionRowLeft: {
+  bottomDateText: {
+    fontSize: 12,
+    fontFamily: 'Assistant',
+    color: '#94A3B8',
+  },
+  bottomActionIcons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 16,
   },
-  actionIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionRowLabel: {
-    fontSize: 13,
-    fontFamily: 'Assistant',
-    color: '#0F172A',
+  bottomIconBtn: {
+    padding: 4,
   },
   // Modal Fullscreen Lightbox
   modalBackdrop: {

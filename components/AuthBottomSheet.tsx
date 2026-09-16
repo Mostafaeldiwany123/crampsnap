@@ -86,7 +86,7 @@ export default function AuthBottomSheet({
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as object),
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     zIndex: 1000,
   },

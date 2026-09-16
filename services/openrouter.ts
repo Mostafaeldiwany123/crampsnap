@@ -11,34 +11,7 @@ export interface AIModelOption {
   provider: string;
 }
 
-export const PRESET_MODELS: AIModelOption[] = [
-  {
-    id: 'google/gemini-2.5-flash-lite-preview-09-2025',
-    name: 'Gemini Flash Lite',
-    description: 'Ultra fast & economical',
-    provider: 'Google',
-  },
-  {
-    id: 'google/gemini-flash-1.5',
-    name: 'Gemini 1.5 Flash',
-    description: 'Document & whiteboard comprehension',
-    provider: 'Google',
-  },
-  {
-    id: 'openai/gpt-4o-mini',
-    name: 'GPT-4o Mini',
-    description: 'Fast & accurate multimodal',
-    provider: 'OpenAI',
-  },
-  {
-    id: 'anthropic/claude-3.5-haiku',
-    name: 'Claude 3.5 Haiku',
-    description: 'Superior handwriting & OCR',
-    provider: 'Anthropic',
-  },
-];
-
-export const DEFAULT_MODEL_ID = 'google/gemini-2.5-flash-lite-preview-09-2025';
+export const DEFAULT_MODEL_ID = 'google/gemini-2.5-flash-lite';
 
 export const getOpenRouterApiKey = async (): Promise<string> => {
   try {
