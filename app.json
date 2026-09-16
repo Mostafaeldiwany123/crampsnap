@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CollegeScannerApp",
-    "slug": "CollegeScannerApp",
+    "name": "CramSnap",
+    "slug": "cramsnap",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
