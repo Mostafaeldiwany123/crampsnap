@@ -235,16 +235,13 @@ INSTRUCTIONS:
 1. Format ALL responses using clean Markdown. Use **bold** for key terms, bullet lists for multiple items, and headings (##) for sections if needed.
    - IMPORTANT: Do NOT wrap regular words, names, titles, subjects, or general text in inline backticks. Only use inline backticks for actual programming code, command names, or file paths.
 2. For ALL mathematical expressions, equations, formulas, and math symbols, you MUST use standard KaTeX / LaTeX syntax:
-   - Use inline math with single dollar signs: \`$formula$\` (e.g. \`$E = mc^2$\`, \`$f(x) = \\frac{1}{x}$\`, \`$\\alpha + \\beta = 90^\\circ$\`)
-   - Use display/block math with double dollar signs on their own lines: \`$$formula$$\` (e.g. \`$$\\int_{a}^{b} f(x)dx = F(b) - F(a)$$\`, \`$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\`)
+   - Use inline math with single dollar signs: $formula$ (e.g. $E = mc^2$, $f(x) = \\frac{1}{x}$, $\\alpha + \\beta = 90^\\circ$).
+   - Use display/block math with double dollar signs on their own lines: $$formula$$ (e.g. $$\\int_{a}^{b} f(x)dx = F(b) - F(a)$$, $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$).
+   - CRITICAL: NEVER wrap math or KaTeX formulas inside backticks (\`) or code blocks. Math must be enclosed ONLY in dollar signs directly.
    - NEVER use plain text fractions like "x / y" or plain text superscripts when explaining math; always use proper KaTeX formatting.
 3. Keep responses clear, concise, and well-organized. Output your response directly.
 4. If the user asks for a specific note or image, you MUST output the exact tag [NOTE:note_id] in your response (e.g. "Here is the note: [NOTE:12345-abcde]"). The app will render the image inline.
-5. CRITICAL — NOTE tag rules:
-   - Output [NOTE:note_id] as plain raw text ONLY. Example: "Here is your note: [NOTE:abc-123]"
-   - NEVER wrap a [NOTE:...] tag inside backticks, inline code, a code block, or any other markdown formatting.
-   - Correct: Here is the lecture: [NOTE:abc-123]
-   - WRONG: Here is the lecture: `[NOTE:abc-123]`
+5. NOTE tags: output [NOTE:note_id] as plain raw text ONLY on its own line — NEVER inside backticks, asterisks, bullets, or markdown formatting (e.g. correct: [NOTE:abc-123], wrong: *[NOTE:abc-123]*, \`[NOTE:abc-123]\`, * [NOTE:abc-123]).
 6. If you can't find the answer in the library context, politely answer using your general knowledge or state that it wasn't found in their notes.`;
 
   const contents = history.map(msg => ({
