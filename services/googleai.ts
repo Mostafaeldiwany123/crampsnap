@@ -11,20 +11,19 @@ export interface AIModelOption {
 }
 
 export const AVAILABLE_MODELS: AIModelOption[] = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Main & Fastest (Recommended)' },
   { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', description: 'Newest Flash (Intro pricing)' },
   { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', description: 'Latest Flash' },
   { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', description: 'Flash (GA)' },
   { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', description: 'Flagship Flash' },
-  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite', description: 'Flash-Lite tier' },
+  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite', description: 'Default & Fastest (Recommended)' },
   { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro Preview', description: 'Flagship reasoning' },
   { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', description: 'Mid-tier' },
   { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash-Lite', description: 'High-volume workhorse' },
 ];
 
-export const DEFAULT_MODEL_ID = 'gemini-2.5-flash';
+export const DEFAULT_MODEL_ID = 'gemini-3.5-flash-lite';
 
-const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+const FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview'];
 
 export const getGoogleAIApiKey = async (): Promise<string> => {
   try {
