@@ -150,11 +150,17 @@ export default function NotePreviewScreen() {
       {/* ─── TOP HERO IMAGE (Fixed 35% Height - Fits Screen) ─── */}
       <View style={styles.heroContainer}>
         {note?.image_url ? (
-          <Image
-            source={{ uri: note.image_url }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setFullscreenImage(true)}
+            style={{ flex: 1 }}
+          >
+            <Image
+              source={{ uri: note.image_url }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+          </TouchableOpacity>
         ) : (
           <View style={styles.heroPlaceholder} />
         )}

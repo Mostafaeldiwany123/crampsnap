@@ -142,7 +142,13 @@ export default function ScannerOverlay({ photoUri, noteId, onCancel, onSave }: S
     <KeyboardAvoidingView style={styles.completedContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Top Hero Image */}
       <View style={styles.heroContainer}>
-        <Image source={{ uri: photoUri }} style={styles.heroImage} resizeMode="cover" />
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setIsFullscreen(true)}
+          style={{ flex: 1 }}
+        >
+          <Image source={{ uri: photoUri }} style={styles.heroImage} resizeMode="cover" />
+        </TouchableOpacity>
 
         <View style={styles.heroTopBar}>
           <TouchableOpacity
