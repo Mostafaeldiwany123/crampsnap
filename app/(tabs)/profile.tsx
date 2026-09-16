@@ -14,7 +14,7 @@ import {
   Linking,
   Switch
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { printToFileAsync } from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import {
@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   LinkSimple,
   Eye,
-  EyeSlash
+  EyeSlash,
+  Sparkle
 } from 'phosphor-react-native';
 import {
   getNotes,
@@ -50,6 +51,7 @@ import {
 import { Note, Category } from '@/types';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
   const [storageUsage, setStorageUsage] = useState({ bytes: 0, formatted: '0 KB' });
   const [aiAnalytics, setAiAnalytics] = useState<AIAnalytics>({ totalRequests: 0 });
@@ -241,6 +243,20 @@ export default function ProfileScreen() {
             <LinkSimple size={22} color="#64748B" weight="regular" style={styles.rowIcon} />
             <View style={styles.cardRowContent}>
               <Text style={styles.cardRowTitle}>Get Free API Key</Text>
+            </View>
+            <CaretRight size={18} color="#CBD5E1" weight="bold" />
+          </TouchableOpacity>
+          <View style={styles.cardDivider} />
+
+          <TouchableOpacity 
+            style={styles.cardRow} 
+            onPress={() => router.push('/onboarding')}
+            activeOpacity={0.7}
+          >
+            <Sparkle size={22} color="#64748B" weight="regular" style={styles.rowIcon} />
+            <View style={styles.cardRowContent}>
+              <Text style={styles.cardRowTitle}>Preview First-Time Setup</Text>
+              <Text style={styles.cardRowValue} numberOfLines={1}>Welcome screen</Text>
             </View>
             <CaretRight size={18} color="#CBD5E1" weight="bold" />
           </TouchableOpacity>
