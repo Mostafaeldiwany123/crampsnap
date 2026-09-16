@@ -170,7 +170,7 @@ export default function CollectionDetailScreen() {
             </TouchableOpacity>
 
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>{category?.name || 'Collection'}</Text>
+              <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{category?.name || 'Collection'}</Text>
               <Text style={styles.headerSub}>
                 {notes.length} {notes.length === 1 ? 'photo' : 'photos'}
               </Text>
@@ -230,12 +230,15 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   headerCenter: {
+    flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 15,
     fontFamily: 'AssistantBold',
     color: '#111827',
+    textAlign: 'center',
   },
   headerSub: {
     fontSize: 12,

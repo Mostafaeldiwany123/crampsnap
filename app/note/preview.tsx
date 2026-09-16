@@ -15,10 +15,13 @@ import {
   View,
   KeyboardAvoidingView,
   Keyboard,
+  Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { printToFileAsync } from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   CaretLeft,
   ShareNetwork,
@@ -121,14 +124,13 @@ export default function NotePreviewScreen() {
     ]);
   };
 
-  const handleCopyText = () => {
+  const handleCopyText = async () => {
     try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(displayContent);
-      }
+      await Clipboard.setStringAsync(displayContent);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
+      console.error('Copy failed:', e);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -237,6 +239,7 @@ export default function NotePreviewScreen() {
                 style={{ flex: 1 }}
                 showsVerticalScrollIndicator={true}
                 nestedScrollEnabled={true}
+                contentContainerStyle={{ paddingBottom: 40 }}
               >
                 <MarkdownRenderer content={displayContent || 'No extracted text.'} />
               </ScrollView>
@@ -259,11 +262,33 @@ export default function NotePreviewScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              onPress={() => {
-                if (typeof navigator !== 'undefined' && (navigator as any).share) {
-                  (navigator as any).share({ title: note?.title, text: displayContent });
-                } else {
-                  handleCopyText();
+              onPress={async () => {
+                try {
+                  const caption = `${note?.title || 'Note'}${note?.summary ? '\n\n' + note.summary : ''}`;
+
+                  if (note?.image_url) {
+                    if (Platform.OS === 'ios') {
+                      // iOS: Share.share supports both url (local file) + message in one sheet
+                      await Share.share({
+                        message: caption,
+                        url: note.image_url,
+                      });
+                    } else {
+                      // Android: copy text to clipboard then open image share sheet
+                      await Clipboard.setStringAsync(caption);
+                      const canShare = await Sharing.isAvailableAsync();
+                      if (canShare) {
+                        await Sharing.shareAsync(note.image_url, {
+                          dialogTitle: caption,
+                          mimeType: 'image/jpeg',
+                        });
+                      }
+                    }
+                  } else {
+                    await Share.share({ message: caption });
+                  }
+                } catch (error) {
+                  console.error('Share error:', error);
                 }
               }} 
               style={styles.bottomIconBtn}
