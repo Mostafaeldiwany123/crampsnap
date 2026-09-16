@@ -228,8 +228,8 @@ export const chatWithLibraryAgent = async (
 You have access to the user's library of captured notes, whiteboards, and documents.
 Your goal is to answer their questions about their notes, explain concepts, find specific information, or summarize topics.
 
-LIBRARY CONTEXT:
-${libraryContext}
+LIBRARY CONTEXT (Current Active Notes in User's Library):
+${libraryContext || 'The user library is currently empty. There are no notes or images.'}
 
 INSTRUCTIONS:
 1. Format ALL responses using clean Markdown. Use **bold** for key terms, bullet lists for multiple items, and headings (##) for sections if needed.
@@ -240,9 +240,9 @@ INSTRUCTIONS:
    - CRITICAL: NEVER wrap math or KaTeX formulas inside backticks (\`) or code blocks. Math must be enclosed ONLY in dollar signs directly.
    - NEVER use plain text fractions like "x / y" or plain text superscripts when explaining math; always use proper KaTeX formatting.
 3. Keep responses clear, concise, and well-organized. Output your response directly.
-4. If the user asks for a specific note or image, you MUST output the exact tag [NOTE:note_id] in your response (e.g. "Here is the note: [NOTE:12345-abcde]"). The app will render the image inline.
+4. Active Notes only: ONLY reference notes that currently exist in the LIBRARY CONTEXT above. If the user asks for a specific note or image, output the exact tag [NOTE:note_id] (e.g. "Here is the note: [NOTE:12345-abcde]").
 5. NOTE tags: output [NOTE:note_id] as plain raw text ONLY on its own line — NEVER inside backticks, asterisks, bullets, or markdown formatting (e.g. correct: [NOTE:abc-123], wrong: *[NOTE:abc-123]*, \`[NOTE:abc-123]\`, * [NOTE:abc-123]).
-6. If you can't find the answer in the library context, politely answer using your general knowledge or state that it wasn't found in their notes.`;
+6. Deleted / Missing Notes: If a note is not present in the current LIBRARY CONTEXT (even if mentioned in earlier conversation messages), it has been deleted or does not exist. Do NOT output a [NOTE:id] tag for it; politely inform the user that it is no longer in their library or was deleted.`;
 
   const contents = history.map(msg => ({
     role: msg.role,

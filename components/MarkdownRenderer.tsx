@@ -12,29 +12,7 @@ interface MarkdownRendererProps {
  */
 export function sanitizeMarkdownMath(text: string): string {
   if (!text) return '';
-  let cleaned = text;
-
-  // 1. Unwrap display math inside backticks: `$$...$$` -> $$...$$
-  cleaned = cleaned.replace(/`+(\$\$[\s\S]+?\$\$)`+/g, '$1');
-
-  // 2. Unwrap inline math inside backticks: `$formula$` -> $formula$
-  cleaned = cleaned.replace(/`+(\$[^`\r\n]+?\$|\\[\(\[][\s\S]+?\\[\)\]])`+/g, '$1');
-
-  // 3. Unwrap LaTeX commands enclosed in backticks without dollar signs:
-  // e.g. `\frac{1}{2}` or `\sqrt{x^2 + y^2}` or `\alpha + \beta`
-  cleaned = cleaned.replace(/`+([^`\r\n]*?\\[a-zA-Z]+[^`\r\n]*?)`+/g, (match, inner) => {
-    const isLatex = /\\(?:frac|sqrt|int|sum|prod|lim|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|tau|phi|omega|Delta|Sigma|partial|nabla|infty|pm|mp|times|div|cdot|leq|geq|neq|approx|equiv|forall|exists|in|notin|subset|cup|cap|vec|hat|bar|tilde|mathbf|mathrm|text|begin|end|matrix|pmatrix|bmatrix|vmatrix|cases|left|right|over)\b/.test(inner);
-    if (isLatex) {
-      const trimmed = inner.trim();
-      if (trimmed.startsWith('$') && trimmed.endsWith('$')) {
-        return trimmed;
-      }
-      return `$${trimmed}$`;
-    }
-    return match;
-  });
-
-  return cleaned;
+  return text.replace(/`+(\$[^`]+?\$|\$\$[\s\S]+?\$\$)`+/g, '$1');
 }
 
 export const MarkdownRenderer = React.memo(({ content }: MarkdownRendererProps) => {
@@ -156,32 +134,11 @@ export const MarkdownRenderer = React.memo(({ content }: MarkdownRendererProps) 
       try {
         const contentDiv = document.getElementById("content-container");
         
-        // Decode the markdown from React Native
-        var rawMarkdown = decodeURIComponent("${encodedContent}");
+        // Decode and unwrap any backticked math
+        var rawMarkdown = decodeURIComponent("${encodedContent}")
+          .replace(/\\x60+(\\$\\$[\\s\\S]+?\\$\\$|\\$[^\\x60\\r\\n]+?\\$)\\x60+/g, "$1");
         
-        // Ensure no backticks wrap math expressions
-        rawMarkdown = rawMarkdown.replace(/\\x60+(\\$\\$[\\s\\S]+?\\$\\$)\\x60+/g, "$1");
-        rawMarkdown = rawMarkdown.replace(/\\x60+(\\$[^\\x60\\r\\n]+?\\$|\\\\[\\[\\(][\\s\\S]+?\\\\[\\]\\)])\\x60+/g, "$1");
-        
-        // Parse markdown to HTML
         contentDiv.innerHTML = marked.parse(rawMarkdown);
-        
-        // Safeguard: Check if any <code> elements contain math.
-        // If marked parsed backticked math into <code> tags, unwrap them into spans so KaTeX renders them
-        var codeEls = contentDiv.querySelectorAll("code");
-        for (var c = 0; c < codeEls.length; c++) {
-          var codeEl = codeEls[c];
-          var codeText = codeEl.textContent || "";
-          if (codeText.indexOf("$") !== -1 || /\\\\(?:frac|sqrt|int|sum|prod|lim|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|tau|phi|omega|Delta|Sigma|partial|nabla|infty|pm|mp|times|div|cdot|leq|geq|neq|approx|equiv)\\b/.test(codeText)) {
-            var span = document.createElement("span");
-            var mathText = codeText.trim();
-            if (!mathText.startsWith("$") && !mathText.startsWith("\\\\(") && !mathText.startsWith("\\\\[") && !mathText.startsWith("$$")) {
-              mathText = "$" + mathText + "$";
-            }
-            span.textContent = mathText;
-            codeEl.parentNode.replaceChild(span, codeEl);
-          }
-        }
 
         // Render KaTeX for all math blocks and inline math
         renderMathInElement(contentDiv, {

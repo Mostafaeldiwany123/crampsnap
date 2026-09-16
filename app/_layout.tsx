@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { useColorScheme, View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useColorScheme, View, ActivityIndicator, StyleSheet, Image } from 'react-native';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -60,7 +60,12 @@ export default function RootLayout() {
   if (!loaded) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="small" color="#FFFFFF" />
+        <Image
+          source={require('../assets/images/icon.png')}
+          style={{ width: 88, height: 88, borderRadius: 22, marginBottom: 20 }}
+          resizeMode="contain"
+        />
+        <ActivityIndicator size="small" color="#94A3B8" />
       </View>
     );
   }

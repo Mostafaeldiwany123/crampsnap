@@ -317,7 +317,10 @@ export default function ScanScreen() {
 
 
 
-  if (!permission || !permission.granted) {
+  // Wait for permission status to load — show nothing to avoid a flash of the permission screen
+  if (!permission) return null;
+
+  if (!permission.granted) {
     const handlePermission = async () => {
       let result = permission;
       if (!permission || permission.canAskAgain) {

@@ -38,90 +38,31 @@ interface NoteSegment { type: 'note'; noteId: string; }
 interface TextSegment { type: 'text'; content: string; }
 type Segment = TextSegment | NoteSegment;
 
-/**
- * Strips asterisks, bullets, backticks, or formatting artifacts
- * directly surrounding [NOTE:id] tags.
- */
-function cleanNoteArtifacts(text: string): string {
-  if (!text) return '';
-  let res = text;
-
-  // 1. Remove wrapping formatting (bold, italic, code, etc.) around [NOTE:...]:
-  // e.g. **[NOTE:id]**, *[NOTE:id]*, ***[NOTE:id]***, `[NOTE:id]`
-  res = res.replace(/[`*_~]{1,3}\s*(\[NOTE:[a-zA-Z0-9-]+\])\s*[`*_~]{1,3}/g, '$1');
-
-  // 2. Remove bullet asterisks or dashes directly preceding [NOTE:...]:
-  // e.g. "* [NOTE:id]" or "- [NOTE:id]" or "*[NOTE:id]"
-  res = res.replace(/(?:^|\n)[ \t]*[\*\-][ \t]*(\[NOTE:[a-zA-Z0-9-]+\])/g, '\n$1');
-
-  // 3. Remove trailing asterisks or dashes on the same line after [NOTE:...]:
-  // e.g. "[NOTE:id] *" or "[NOTE:id]**"
-  res = res.replace(/(\[NOTE:[a-zA-Z0-9-]+\])[ \t]*[\*\-]+/g, '$1');
-
-  // 4. Remove standalone asterisk lines immediately before or after [NOTE:...]:
-  // e.g. "*\n[NOTE:id]" or "[NOTE:id]\n*"
-  res = res.replace(/\n[ \t]*[\*\_]+[ \t]*\n[ \t]*(\[NOTE:[a-zA-Z0-9-]+\])/g, '\n$1');
-  res = res.replace(/(\[NOTE:[a-zA-Z0-9-]+\])[ \t]*\n[ \t]*[\*\_]+[ \t]*(?:\n|$)/g, '$1\n');
-
-  return res;
-}
-
 function hasMath(text: string): boolean {
-  if (!text) return false;
-  return (
-    text.includes('$') ||
-    text.includes('\\(') ||
-    text.includes('\\[') ||
-    /\\(?:frac|sqrt|int|sum|prod|lim|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|tau|phi|omega|Delta|Sigma|partial|nabla|infty|pm|mp|times|div|cdot|leq|geq|neq|approx|equiv)\b/.test(text)
-  );
+  return text.includes('$') || text.includes('\\(') || text.includes('\\[');
 }
 
 function parseSegments(rawContent: string): Segment[] {
   if (!rawContent) return [];
-  const cleaned = cleanNoteArtifacts(sanitizeMarkdownMath(rawContent));
-  const regex = /(\[NOTE:[a-zA-Z0-9-]+\])/g;
-  const parts = cleaned.split(regex);
 
-  const rawSegments: Segment[] = [];
-  for (const part of parts) {
-    if (!part) continue;
-    if (part.startsWith('[NOTE:') && part.endsWith(']')) {
-      rawSegments.push({
-        type: 'note',
-        noteId: part.replace('[NOTE:', '').replace(']', ''),
-      });
-    } else {
-      rawSegments.push({
-        type: 'text',
-        content: part,
-      });
-    }
-  }
+  // 1. Unwrap math if trapped in backticks: `$x$` -> $x$
+  let text = sanitizeMarkdownMath(rawContent);
 
-  // Boundary cleanup: if a text segment is adjacent to a note segment,
-  // strip any dangling asterisks, bullets, or stray formatting characters left at the edges!
-  for (let i = 0; i < rawSegments.length; i++) {
-    const seg = rawSegments[i];
-    if (seg.type === 'text') {
-      let t = seg.content;
+  // 2. Remove bullets or formatting directly wrapping [NOTE:id]
+  text = text
+    .replace(/(?:^|\n)\s*[\*\-]\s*(\[NOTE:[a-zA-Z0-9-]+\])/g, '\n$1')
+    .replace(/[`*]+(\[NOTE:[a-zA-Z0-9-]+\])[`*]*/g, '$1')
+    .replace(/(\[NOTE:[a-zA-Z0-9-]+\])[`*]+/g, '$1');
 
-      // If followed immediately by a note card, trim dangling asterisks/bullets from the end
-      if (i + 1 < rawSegments.length && rawSegments[i + 1].type === 'note') {
-        t = t.replace(/(?:\r?\n[ \t]*[\*\-_]+[ \t]*)+$/, '');
-        t = t.replace(/[ \t]*[\*\-_]+[ \t]*$/, '');
+  return text
+    .split(/(\[NOTE:[a-zA-Z0-9-]+\])/g)
+    .filter(p => p && p.trim().length > 0)
+    .map(part => {
+      if (part.startsWith('[NOTE:') && part.endsWith(']')) {
+        return { type: 'note', noteId: part.replace('[NOTE:', '').replace(']', '') } as NoteSegment;
       }
-
-      // If preceded immediately by a note card, trim dangling asterisks/bullets from the start
-      if (i > 0 && rawSegments[i - 1].type === 'note') {
-        t = t.replace(/^(?:[ \t]*[\*\-_]+[ \t]*(?:\r?\n|$))+/, '');
-        t = t.replace(/^[ \t]*[\*\-_]+[ \t]*/, '');
-      }
-
-      seg.content = t;
-    }
-  }
-
-  return rawSegments.filter(s => s.type === 'note' || s.content.trim().length > 0);
+      return { type: 'text', content: part } as TextSegment;
+    });
 }
 
 function SimpleMarkdown({ text }: { text: string }) {
@@ -173,21 +114,19 @@ function SimpleMarkdown({ text }: { text: string }) {
 }
 
 function inlineFmt(text: string): React.ReactNode[] {
-  // Strip leading or trailing stray single/double asterisks that aren't closed
-  const cleanedText = text.replace(/^[\*\-_]{1,2}(?!\S)/, '').replace(/(?<!\S)[\*\-_]{1,2}$/, '');
   const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
   const result: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
-  while ((m = regex.exec(cleanedText)) !== null) {
-    if (m.index > last) result.push(<Text key={last}>{cleanedText.slice(last, m.index)}</Text>);
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) result.push(<Text key={last}>{text.slice(last, m.index)}</Text>);
     if (m[2]) result.push(<Text key={m.index} style={{ fontWeight: '700' }}>{m[2]}</Text>);
     else if (m[3]) result.push(<Text key={m.index} style={{ fontStyle: 'italic' }}>{m[3]}</Text>);
     else if (m[4]) result.push(<Text key={m.index} style={md.inlineCode}>{m[4]}</Text>);
     last = m.index + m[0].length;
   }
-  if (last < cleanedText.length) result.push(<Text key={last}>{cleanedText.slice(last)}</Text>);
-  return result.length > 0 ? result : [<Text key="0">{cleanedText}</Text>];
+  if (last < text.length) result.push(<Text key={last}>{text.slice(last)}</Text>);
+  return result.length > 0 ? result : [<Text key="0">{text}</Text>];
 }
 
 const md = StyleSheet.create({
@@ -223,7 +162,7 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    const cleaned = cleanNoteArtifacts(sanitizeMarkdownMath(text))
+    const cleaned = text
       .replace(/\[NOTE:[a-zA-Z0-9-]+\]/g, '')
       .replace(/(?:\r?\n){3,}/g, '\n\n')
       .trim();
@@ -366,9 +305,15 @@ export default function LibraryAgentScreen() {
     setIsLoading(true);
 
     try {
-      const context = notes.map(n =>
-        `ID: ${n.id} | Title: ${n.title} | Tags: ${(n.tags || []).join(', ')} | Date: ${new Date(n.created_at).toLocaleDateString()} | Description: ${n.summary || ''}`
-      ).join('\n');
+      // Always fetch fresh notes directly from storage to ensure deleted/added notes are updated
+      const freshNotes = (await getNotes()) || [];
+      setNotes(freshNotes);
+
+      const context = freshNotes.length > 0
+        ? freshNotes.map(n =>
+            `ID: ${n.id} | Title: ${n.title} | Tags: ${(n.tags || []).join(', ')} | Date: ${new Date(n.created_at).toLocaleDateString()} | Summary: ${n.summary || ''} | Content: ${(n.content || '').slice(0, 300)}`
+          ).join('\n---\n')
+        : 'The user library is currently empty. There are no notes or images.';
 
       const responseText = await chatWithLibraryAgent(newHistory, context);
 
