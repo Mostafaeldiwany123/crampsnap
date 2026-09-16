@@ -36,10 +36,6 @@ export default function OnboardingScreen() {
       setError('Paste your Gemini API key to continue.');
       return;
     }
-    if (!clean.startsWith('AIza')) {
-      setError('That doesn\'t look like a Gemini key — it should start with "AIza".');
-      return;
-    }
     setError('');
     setSaving(true);
     try {
