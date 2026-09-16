@@ -1,8 +1,8 @@
 let Audio: any = null;
 try {
   Audio = require('expo-av').Audio;
-} catch (error) {
-  console.log('expo-av native module not found. Audio will be disabled until cache is cleared.');
+} catch (_) {
+  // expo-av native module not available, audio disabled
 }
 
 let shutterSound: any = null;

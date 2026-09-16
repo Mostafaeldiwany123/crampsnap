@@ -357,7 +357,7 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ─── LIVE CAMERA (Camera Only) ─── */}
+      {/* ─── LIVE CAMERA (no children to avoid the warning) ─── */}
       <CameraView
         style={styles.camera}
         ref={cameraRef}
@@ -366,10 +366,12 @@ export default function ScanScreen() {
         enableTorch={flash === 'on'}
         zoom={zoom}
         autofocus="on"
-      >
-        {/* ─── TOP BAR (BORDERLESS PHOSPHOR ICONS) ─── */}
+      />
+
+      {/* ─── UI OVERLAY (absolutely positioned on top of CameraView) ─── */}
+      <View style={styles.uiOverlay} pointerEvents="box-none">
+        {/* ─── TOP BAR ─── */}
         <View style={styles.topBar}>
-          {/* Flash Toggle (Borderless icon) */}
           <TouchableOpacity
             style={styles.borderlessBtn}
             onPress={() => setFlash((f) => (f === 'off' ? 'on' : 'off'))}
@@ -381,7 +383,6 @@ export default function ScanScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Grid Toggle (Borderless icon) */}
           <TouchableOpacity
             style={styles.borderlessBtn}
             onPress={() => setShowGrid((g) => !g)}
@@ -393,7 +394,6 @@ export default function ScanScreen() {
             />
           </TouchableOpacity>
 
-          {/* Import Photo Icon (Borderless icon) */}
           <TouchableOpacity
             style={styles.borderlessBtn}
             onPress={handlePickFromGallery}
@@ -401,7 +401,6 @@ export default function ScanScreen() {
             <UploadSimple size={26} color="#FFFFFF" weight="regular" />
           </TouchableOpacity>
 
-          {/* Rotate / Flip Camera Icon (Replaced AI Sparkle) */}
           <TouchableOpacity
             style={styles.borderlessBtn}
             onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
@@ -415,7 +414,7 @@ export default function ScanScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ─── PURE CAMERA VIEWFINDER WITH OPTIONAL THIN GRID ─── */}
+        {/* ─── VIEWFINDER (pan gesture + grid) ─── */}
         <View
           style={styles.viewfinder}
           {...panResponder.panHandlers}
@@ -441,13 +440,9 @@ export default function ScanScreen() {
             </View>
           )}
 
-          {/* Center Zoom Multiplier Text (Appears bigger in the middle when pinching in/out) */}
           <Animated.View
             pointerEvents="none"
-            style={[
-              styles.centerZoomContainer,
-              { opacity: zoomAnim },
-            ]}
+            style={[styles.centerZoomContainer, { opacity: zoomAnim }]}
           >
             <View style={styles.centerZoomBadge}>
               <Text style={styles.centerZoomText}>
@@ -457,9 +452,9 @@ export default function ScanScreen() {
           </Animated.View>
         </View>
 
-        {/* ─── BOTTOM DECK (Clean spacing for bottom tab bar) ─── */}
+        {/* ─── BOTTOM DECK SPACER ─── */}
         <View style={styles.bottomDeck} />
-      </CameraView>
+      </View>
 
       {/* ─── OVERLAYS ─── */}
       {activeScanData && (
@@ -481,17 +476,14 @@ export default function ScanScreen() {
             setBurstPhotos([]);
           }}
           onSelect={async (uri) => {
-            // Keep BatchSelector mounted until the note is ready to prevent flash
             const note = await createProcessingNote(uri);
             processNote(note.id, uri);
             setActiveScanData({ uri, noteId: note.id });
             setShowBatchSelector(false);
-            setBurstPhotos([]); // Clear burst photos so tab bar works
+            setBurstPhotos([]);
           }}
         />
       )}
-
-
     </View>
   );
 }
@@ -503,6 +495,14 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  uiOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'column',
     justifyContent: 'space-between',
   },
   flashOverlay: {

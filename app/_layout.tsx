@@ -1,9 +1,8 @@
 
 import { useFonts } from 'expo-font';
-import { Slot, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { useColorScheme, View, ActivityIndicator, StyleSheet, Image } from 'react-native';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -46,7 +45,6 @@ export default function RootLayout() {
     AssistantExtraBold: Assistant_800ExtraBold,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
   }, [error]);
@@ -57,21 +55,11 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
-        <Image
-          source={require('../assets/images/icon.png')}
-          style={{ width: 88, height: 88, borderRadius: 22, marginBottom: 20 }}
-          resizeMode="contain"
-        />
-        <ActivityIndicator size="small" color="#94A3B8" />
-      </View>
-    );
-  }
+  if (!loaded) return null;
 
   return <RootLayoutNav />;
 }
+
 
 function RootLayoutNav() {
   return (
