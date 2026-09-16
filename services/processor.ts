@@ -1,6 +1,7 @@
 import { getCategories, saveCategory, updateNote, getNote } from '@/services/notes';
 import { chatWithAI } from '@/services/googleai';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
 const getRandomColor = () => {
@@ -8,12 +9,41 @@ const getRandomColor = () => {
     return colors[Math.floor(Math.random() * colors.length)];
 };
 
+const AI_IMAGE_MAX_WIDTH = 1600;
+const AI_IMAGE_COMPRESSION = 0.8;
+
+/**
+ * Downscales + compresses a captured photo before sending it to the AI.
+ * Full-res phone photos are 2-6 MB of base64; resizing cuts the payload
+ * dramatically, which directly reduces Gemini latency (~5-8s to ~3-5s).
+ */
+const prepareImageForAI = async (uri: string): Promise<string> => {
+    const resized = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: AI_IMAGE_MAX_WIDTH } }],
+        {
+            compress: AI_IMAGE_COMPRESSION,
+            format: ImageManipulator.SaveFormat.JPEG,
+        }
+    );
+    return resized.uri;
+};
+
 export const processNote = async (noteId: string, imageUri: string) => {
     try {
         console.log(`Starting processing for note ${noteId}`);
+
+        // Resize image for faster AI analysis; fall back to original if it fails.
+        let resizedUri = imageUri;
+        try {
+            resizedUri = await prepareImageForAI(imageUri);
+        } catch (err) {
+            console.warn('Image resize failed, using original:', err);
+        }
+
         let base64 = '';
         if (Platform.OS === 'web') {
-            const response = await fetch(imageUri);
+            const response = await fetch(resizedUri);
             const blob = await response.blob();
             base64 = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
@@ -25,7 +55,7 @@ export const processNote = async (noteId: string, imageUri: string) => {
                 reader.readAsDataURL(blob);
             });
         } else {
-            base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: 'base64' });
+            base64 = await FileSystem.readAsStringAsync(resizedUri, { encoding: 'base64' });
         }
 
         const categories = await getCategories();
