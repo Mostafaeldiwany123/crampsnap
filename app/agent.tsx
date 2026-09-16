@@ -311,7 +311,7 @@ export default function LibraryAgentScreen() {
 
       const context = freshNotes.length > 0
         ? freshNotes.map(n =>
-            `ID: ${n.id} | Title: ${n.title} | Tags: ${(n.tags || []).join(', ')} | Date: ${new Date(n.created_at).toLocaleDateString()} | Summary: ${n.summary || ''} | Content: ${(n.content || '').slice(0, 300)}`
+            `ID: ${n.id} | Title: ${n.title} | Tags: ${(n.tags || []).join(', ')} | Date: ${new Date(n.created_at).toLocaleDateString()} | Summary: ${n.summary || ''} | Personal Notes: ${n.user_note || 'None'}`
           ).join('\n---\n')
         : 'The user library is currently empty. There are no notes or images.';
 

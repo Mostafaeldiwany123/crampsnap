@@ -29,7 +29,7 @@ import {
   Camera,
   CameraRotate,
 } from 'phosphor-react-native';
-import { createProcessingNote, getNotes } from '@/services/notes';
+import { createProcessingNote, getNotes, updateNote } from '@/services/notes';
 import { processNote } from '@/services/processor';
 import { trackUsage } from '@/services/usage';
 import { loadShutterSound, playShutterSound } from '@/services/audio';
@@ -276,6 +276,15 @@ export default function ScanScreen() {
   };
 
   const handleSaveScan = async (noteId: string, uri: string, manualNote?: string) => {
+    // Save the user's personal note to storage BEFORE closing the overlay,
+    // so it persists to the Library and reaches the AI Agent context.
+    if (manualNote && manualNote.trim()) {
+      try {
+        await updateNote(noteId, { user_note: manualNote.trim() });
+      } catch (e) {
+        console.error('Failed to save personal note:', e);
+      }
+    }
     await trackUsage('batch_image_saved');
     DeviceEventEmitter.emit('PHOTO_SAVED', { uri: uri });
     setActiveScanData(null);
