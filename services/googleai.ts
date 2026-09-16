@@ -26,10 +26,10 @@ export const DEFAULT_MODEL_ID = 'gemini-3.5-flash-lite';
 const FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview'];
 
 export const getGoogleAIApiKey = async (): Promise<string> => {
+  // Only the user's own key (entered in Profile) is used — no env fallback.
   try {
     const saved = await AsyncStorage.getItem(GOOGLEAI_KEY_STORAGE);
-    if (saved && saved.trim()) return saved.trim();
-    return process.env.EXPO_PUBLIC_GOOGLEAI_API_KEY || '';
+    return saved && saved.trim() ? saved.trim() : '';
   } catch (e) {
     return '';
   }
