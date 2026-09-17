@@ -1,57 +1,47 @@
-import React, { useState, useCallback } from 'react';
 import {
-  ActivityIndicator,
+  AIAnalytics,
+  AVAILABLE_MODELS,
+  getAIAnalytics,
+  getGoogleAIApiKey,
+  getGoogleAIModel,
+  setGoogleAIApiKey,
+  setGoogleAIModel,
+} from '@/services/googleai';
+import {
+  clearAllData,
+  getNotes,
+  getStorageUsage
+} from '@/services/notes';
+import { Note } from '@/types';
+import { printToFileAsync } from 'expo-print';
+import { useFocusEffect } from 'expo-router';
+import * as Sharing from 'expo-sharing';
+import {
+  CaretRight,
+  Check,
+  Cpu,
+  Eye,
+  EyeSlash,
+  Key,
+  LinkSimple,
+  Trash
+} from 'phosphor-react-native';
+import { useCallback, useState } from 'react';
+import {
   Alert,
+  FlatList,
+  Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Modal,
-  FlatList,
-  Linking,
-  Switch
+  View
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { printToFileAsync } from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import {
-  FilePdf,
-  Trash,
-  CaretRight,
-  Check,
-  Cpu,
-  Database,
-  Images,
-  CaretDown,
-  Key,
-  ShieldCheck,
-  LinkSimple,
-  Eye,
-  EyeSlash,
-  Sparkle
-} from 'phosphor-react-native';
-import {
-  getNotes,
-  getCategories,
-  getStorageUsage,
-  clearAllData,
-} from '@/services/notes';
-import {
-  getGoogleAIApiKey,
-  setGoogleAIApiKey,
-  getGoogleAIModel,
-  setGoogleAIModel,
-  getAIAnalytics,
-  AIAnalytics,
-  AVAILABLE_MODELS,
-} from '@/services/googleai';
-import { Note, Category } from '@/types';
 
 export default function ProfileScreen() {
-  const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
   const [storageUsage, setStorageUsage] = useState({ bytes: 0, formatted: '0 KB' });
   const [aiAnalytics, setAiAnalytics] = useState<AIAnalytics>({ totalRequests: 0 });
@@ -59,7 +49,7 @@ export default function ProfileScreen() {
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
-  
+
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [showModelModal, setShowModelModal] = useState(false);
 
@@ -98,7 +88,7 @@ export default function ProfileScreen() {
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
   };
-  
+
   const handleSelectModel = async (modelId: string) => {
     await setGoogleAIModel(modelId);
     setSelectedModel(modelId);
@@ -168,7 +158,7 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
-        
+
         {/* STATS OVERVIEW - MINIMALIST */}
         <Text style={styles.sectionHeader}>ANALYTICS</Text>
         <View style={styles.cardGroup}>
@@ -190,7 +180,7 @@ export default function ProfileScreen() {
 
         <Text style={styles.sectionHeader}>GOOGLE AI STUDIO</Text>
         <View style={styles.cardGroup}>
-          
+
           <View style={styles.cardRow}>
             <Key size={22} color="#64748B" weight="regular" style={styles.rowIcon} />
             <View style={styles.cardRowContent}>
@@ -206,8 +196,8 @@ export default function ProfileScreen() {
                 autoCorrect={false}
               />
             </View>
-            <TouchableOpacity 
-              onPress={() => setShowKey(!showKey)} 
+            <TouchableOpacity
+              onPress={() => setShowKey(!showKey)}
               style={{ padding: 4, marginLeft: 4 }}
               activeOpacity={0.7}
             >
@@ -221,8 +211,8 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.cardDivider} />
 
-          <TouchableOpacity 
-            style={styles.cardRow} 
+          <TouchableOpacity
+            style={styles.cardRow}
             onPress={() => setShowModelModal(true)}
             activeOpacity={0.7}
           >
@@ -235,8 +225,8 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <View style={styles.cardDivider} />
 
-          <TouchableOpacity 
-            style={styles.cardRow} 
+          <TouchableOpacity
+            style={styles.cardRow}
             onPress={() => Linking.openURL('https://aistudio.google.com/apikey')}
             activeOpacity={0.7}
           >
@@ -246,28 +236,13 @@ export default function ProfileScreen() {
             </View>
             <CaretRight size={18} color="#CBD5E1" weight="bold" />
           </TouchableOpacity>
-          <View style={styles.cardDivider} />
-
-          <TouchableOpacity 
-            style={styles.cardRow} 
-            onPress={() => router.push('/onboarding')}
-            activeOpacity={0.7}
-          >
-            <Sparkle size={22} color="#64748B" weight="regular" style={styles.rowIcon} />
-            <View style={styles.cardRowContent}>
-              <Text style={styles.cardRowTitle}>Preview First-Time Setup</Text>
-              <Text style={styles.cardRowValue} numberOfLines={1}>Welcome screen</Text>
-            </View>
-            <CaretRight size={18} color="#CBD5E1" weight="bold" />
-          </TouchableOpacity>
-
         </View>
 
         {/* DESTRUCTIVE ACTIONS */}
         <View style={[styles.cardGroup, { marginTop: 24 }]}>
 
-          <TouchableOpacity 
-            style={styles.cardRow} 
+          <TouchableOpacity
+            style={styles.cardRow}
             onPress={handleResetData}
             activeOpacity={0.7}
           >
@@ -280,7 +255,7 @@ export default function ProfileScreen() {
 
         <Text style={styles.versionText}>College Scanner v1.0.0</Text>
       </ScrollView>
-      
+
       {/* Model Selection Modal */}
       <Modal
         visible={showModelModal}
