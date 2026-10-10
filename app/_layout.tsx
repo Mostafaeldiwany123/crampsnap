@@ -33,6 +33,17 @@ export const unstable_settings = {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+function isRunningAsStandalonePWA(): boolean {
+  if (Platform.OS !== 'web') return true;
+  if (typeof window === 'undefined') return false;
+  return Boolean(
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    ('standalone' in window.navigator && Boolean((window.navigator as any).standalone))
+  );
+}
+
 export default function RootLayout() {
   const [loadedNative, error] = useFonts(
     Platform.OS === 'web'
@@ -54,27 +65,17 @@ export default function RootLayout() {
   const loaded = Platform.OS === 'web' ? true : loadedNative;
 
   const [isStandalonePWA, setIsStandalonePWA] = useState<boolean>(() => {
-    if (Platform.OS !== 'web') return true;
-    if (typeof window === 'undefined') return false;
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true ||
-      document.referrer.includes('android-app://');
-    return isStandalone;
+    return isRunningAsStandalonePWA();
   });
-
-  const [bypassGate, setBypassGate] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const mediaQuery = window.matchMedia('(display-mode: standalone)');
-      const checkMode = (e: MediaQueryListEvent | MediaQueryList) => {
-        if (e.matches || (window.navigator as any).standalone === true) {
-          setIsStandalonePWA(true);
-        }
+      const checkMode = () => {
+        setIsStandalonePWA(isRunningAsStandalonePWA());
       };
-      mediaQuery.addEventListener('change', checkMode as any);
-      return () => mediaQuery.removeEventListener('change', checkMode as any);
+      mediaQuery.addEventListener('change', checkMode);
+      return () => mediaQuery.removeEventListener('change', checkMode);
     }
   }, []);
 
@@ -90,9 +91,9 @@ export default function RootLayout() {
 
   if (!loaded) return null;
 
-  // On Web, if not running in installed standalone PWA, show the PWA Install Gate
-  if (Platform.OS === 'web' && !isStandalonePWA && !bypassGate) {
-    return <InstallGate onBypass={() => setBypassGate(true)} />;
+  // On Web: If NOT running as an installed standalone PWA, ALWAYS show the Install Gate!
+  if (Platform.OS === 'web' && !isStandalonePWA) {
+    return <InstallGate />;
   }
 
   return <RootLayoutNav />;

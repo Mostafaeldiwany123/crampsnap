@@ -15,16 +15,11 @@ import {
   DeviceMobile,
   Camera,
   Article,
-  CaretRight,
   Info,
   GithubLogo,
 } from 'phosphor-react-native';
 
-interface InstallGateProps {
-  onBypass?: () => void;
-}
-
-export function InstallGate({ onBypass }: InstallGateProps) {
+export function InstallGate() {
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
@@ -249,18 +244,6 @@ export function InstallGate({ onBypass }: InstallGateProps) {
           <GithubLogo size={16} color="#0F172A" weight="fill" />
           <Text style={styles.githubBtnText}>Open Source on GitHub</Text>
         </TouchableOpacity>
-
-        {/* Developer / Browser Preview Link */}
-        {onBypass && (
-          <TouchableOpacity
-            style={styles.bypassBtn}
-            onPress={onBypass}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.bypassBtnText}>Preview in browser (Developer Mode)</Text>
-            <CaretRight size={13} color="#94A3B8" />
-          </TouchableOpacity>
-        )}
       </View>
     </ScrollView>
   );
@@ -545,19 +528,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '300',
     lineHeight: 16,
-  },
-  bypassBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  bypassBtnText: {
-    fontFamily: 'Assistant',
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '300',
   },
   githubBtn: {
     flexDirection: 'row',
