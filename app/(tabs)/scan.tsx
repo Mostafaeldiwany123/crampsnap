@@ -35,6 +35,7 @@ import { trackUsage } from '@/services/usage';
 import { loadShutterSound, playShutterSound } from '@/services/audio';
 import ScannerOverlay from '@/components/ScannerOverlay';
 import BatchSelector from '@/components/BatchSelector';
+import { saveWebImage } from '@/services/imageStorage';
 
 const { width } = Dimensions.get('window');
 
@@ -278,6 +279,8 @@ export default function ScanScreen() {
               savedPath = docDir + fileName;
               await FileSystem.copyAsync({ from: uri, to: savedPath });
             }
+          } else {
+            savedPath = await saveWebImage(`img_${Date.now()}`, uri);
           }
 
           if (isBurst) {
@@ -335,7 +338,7 @@ export default function ScanScreen() {
         setLastPhotoUri(assetUri);
         animateThumbnail();
 
-        let savedPath = assetUri;
+        let savedPath = Platform.OS === 'web' ? await saveWebImage(`img_${Date.now()}`, assetUri) : assetUri;
         if (Platform.OS !== 'web') {
           const fileName = assetUri.split('/').pop() || `note_${Date.now()}.jpg`;
           const docDir = (FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory;
