@@ -576,10 +576,10 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { fontSize: 16, fontFamily: 'Assistant', fontWeight: '400', color: '#0F172A', marginLeft: 44 },
+  headerTitle: { fontSize: 16, fontFamily: 'Assistant', fontWeight: '800', color: '#0F172A', marginLeft: 44 },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   emptyIcon: { width: 68, height: 68, borderRadius: 16, marginBottom: 20 },
-  emptyTitle: { fontSize: 23, fontFamily: 'Assistant', fontWeight: '400', color: '#0F172A', textAlign: 'center', lineHeight: 30 },
+  emptyTitle: { fontSize: 23, fontFamily: 'Assistant', fontWeight: '800', color: '#0F172A', textAlign: 'center', lineHeight: 30 },
   emptySub: { fontSize: 14, fontFamily: 'Assistant', fontWeight: '300', color: '#94A3B8', marginTop: 10, textAlign: 'center', lineHeight: 20 },
   list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 },
   userRow: { alignItems: 'flex-end', marginBottom: 12 },
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
   historyTitleFull: {
     fontSize: 20,
     fontFamily: 'Assistant',
-    fontWeight: '400',
+    fontWeight: '800',
     color: '#0F172A',
   },
   historyCountBadge: {

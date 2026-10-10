@@ -445,14 +445,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontFamily: 'Assistant',
-    fontWeight: '300',
+    fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 13,
     fontFamily: 'Assistant',
-    fontWeight: '300',
+    fontWeight: '400',
     color: '#64748B',
     marginTop: 2,
   },
@@ -477,13 +477,13 @@ const styles = StyleSheet.create({
   agentBtnText: {
     fontSize: 14,
     fontFamily: 'Assistant',
-    fontWeight: '400',
+    fontWeight: '700',
     color: '#0F172A',
   },
   selectionTitle: {
     fontSize: 18,
     fontFamily: 'Assistant',
-    fontWeight: '400',
+    fontWeight: '700',
     color: '#0F172A',
   },
   searchBar: {
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 18,
     fontFamily: 'Assistant',
-    fontWeight: '400',
+    fontWeight: '700',
     color: '#0F172A',
     letterSpacing: -0.2,
   },
@@ -539,8 +539,8 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 13,
     fontFamily: 'Assistant',
-    fontWeight: '300',
-    color: '#64748B',
+    fontWeight: '700',
+    color: '#475569',
   },
   photoGrid: {
     flexDirection: 'row',

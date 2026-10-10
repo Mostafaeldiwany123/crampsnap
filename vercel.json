@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx expo export -p web && node -e \"const fs=require('fs');fs.copyFileSync('public/manifest.json', 'dist/manifest.json');\"",
+  "buildCommand": "npx expo export -p web && node -e \"const fs=require('fs'); fs.readdirSync('public').forEach(f => fs.copyFileSync('public/' + f, 'dist/' + f));\"",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [

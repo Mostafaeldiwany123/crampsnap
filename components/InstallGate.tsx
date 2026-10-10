@@ -54,6 +54,10 @@ export function InstallGate() {
     window.addEventListener('appinstalled', () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      try {
+        localStorage.setItem('cramsnap_standalone_active', '1');
+      } catch (_) {}
+      window.location.href = '/?source=pwa';
     });
 
     return () => {
@@ -82,10 +86,10 @@ export function InstallGate() {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.container}>
       <View style={styles.card}>
-        {/* App Icon (Clean logo, no icon overlay) */}
+        {/* App Icon (Clean compressed logo, instant load) */}
         <View style={styles.iconWrapper}>
           <Image
-            source={require('@/assets/images/icon.png')}
+            source={require('@/assets/images/logo-gate.png')}
             style={styles.appIcon}
             resizeMode="cover"
           />
@@ -96,7 +100,7 @@ export function InstallGate() {
           <Text style={styles.badgeText}>COLLEGE EDITION • WEB APP</Text>
         </View>
 
-        {/* Title & Subtitle in clean Assistant lightweight */}
+        {/* Title & Subtitle in clean Assistant */}
         <Text style={styles.title}>CramSnap</Text>
         <Text style={styles.subtitle}>
           AI Lecture & Document Scanner designed for students. Install it to your home screen to get started.
@@ -122,10 +126,22 @@ export function InstallGate() {
           <View style={styles.successBox}>
             <CheckCircle size={20} color="#059669" weight="regular" />
             <Text style={styles.successText}>
-              CramSnap is installed! You can now open it from your phone's home screen.
+              CramSnap is installed! Tap below or open from your home screen.
             </Text>
+            <TouchableOpacity
+              style={styles.openNowBtn}
+              onPress={() => {
+                try {
+                  localStorage.setItem('cramsnap_standalone_active', '1');
+                } catch (_) {}
+                window.location.href = '/?source=pwa';
+              }}
+            >
+              <Text style={styles.openNowBtnText}>Open CramSnap</Text>
+            </TouchableOpacity>
           </View>
         )}
+
 
         {/* ─── APPLE iOS INSTRUCTIONS ─── */}
         {isIOS ? (
@@ -494,12 +510,28 @@ const styles = StyleSheet.create({
     borderColor: '#A7F3D0',
   },
   successText: {
-    flex: 1,
     fontFamily: 'Assistant',
     color: '#065F46',
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '400',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  openNowBtn: {
+    backgroundColor: '#059669',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  openNowBtnText: {
+    color: '#FFFFFF',
+    fontFamily: 'Assistant',
+    fontWeight: '700',
+    fontSize: 14,
   },
   featuresGrid: {
     width: '100%',

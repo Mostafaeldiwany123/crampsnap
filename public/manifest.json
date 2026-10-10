@@ -34,9 +34,9 @@
       "purpose": "maskable"
     }
   ],
-  "start_url": "/",
-  "background_color": "#FFFFFF",
-  "theme_color": "#4F46E5",
+  "start_url": "/?source=pwa",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "display": "standalone",
   "orientation": "portrait",
   "scope": "/"

@@ -21,9 +21,11 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <link rel="shortcut icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
         <link rel="apple-touch-icon" href="/icon.png" />
-        <meta name="theme-color" content="#4F46E5" />
+        <link rel="preload" as="image" href="/logo-gate.png" />
+        <meta name="theme-color" content="#000000" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="CramSnap" />
 
         <ScrollViewStyleReset />
@@ -77,18 +79,30 @@ export default function Root({ children }: { children: React.ReactNode }) {
 const responsiveBackground = `
 * {
   font-family: 'Assistant', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  font-weight: 300 !important;
   outline: none !important;
   -webkit-tap-highlight-color: transparent;
 }
-b, strong, h1, h2, h3, h4, h5, h6 {
-  font-family: 'Assistant', sans-serif !important;
-  font-weight: 400 !important;
+body, p, span, input, textarea, select {
+  font-weight: 300;
+}
+b, strong, h1, h2, h3, h4, h5, h6, [style*="bold"], [style*="700"], [style*="800"], .header-title {
+  font-family: 'Assistant', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-weight: 800 !important;
 }
 html, body, #root {
+  width: 100%;
+  height: 100%;
+  height: 100vh;
+  height: -webkit-fill-available;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   touch-action: manipulation;
   overscroll-behavior: none;
+  background-color: #000000;
 }
+
 
 body {
   background-color: #F8FAFC;

@@ -153,8 +153,33 @@ export default function ScanScreen() {
     }
   };
 
+  const handleToggleFacing = () => {
+    // 1. Reset zoom and torch constraints before flipping
+    setZoom(0);
+    currentZoomRef.current = 0;
+    setZoomMultiplier(1.0);
+    setFlash('off');
+
+    // 2. On web, explicitly release previous media tracks so the mobile camera hardware releases the sensor
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      try {
+        const videos = document.querySelectorAll('video');
+        videos.forEach((v: any) => {
+          if (v.srcObject && typeof v.srcObject.getTracks === 'function') {
+            v.srcObject.getTracks().forEach((track: any) => track.stop());
+            v.srcObject = null;
+          }
+        });
+      } catch (e) {
+        console.warn('Error releasing web camera tracks:', e);
+      }
+    }
+
+    setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
+  };
 
   const loadLatestPhoto = useCallback(async () => {
+
     try {
       const notes = await getNotes();
       const withImage = notes.find((n) => !!n.image_url);
@@ -404,12 +429,13 @@ export default function ScanScreen() {
     <View style={styles.container}>
       {/* ─── LIVE CAMERA (no children to avoid the warning) ─── */}
       <CameraView
+        key={`camera-${facing}`}
         style={styles.camera}
         ref={cameraRef}
         facing={facing}
-        flash={flash}
-        enableTorch={flash === 'on'}
-        zoom={zoom}
+        flash={facing === 'front' ? 'off' : flash}
+        enableTorch={facing === 'back' && flash === 'on'}
+        zoom={facing === 'front' ? 0 : zoom}
         autofocus="on"
         onCameraReady={() => {
           cameraReadyRef.current = true;
@@ -421,10 +447,11 @@ export default function ScanScreen() {
         {/* ─── TOP BAR ─── */}
         <View style={styles.topBar}>
           <TouchableOpacity
-            style={styles.borderlessBtn}
+            style={[styles.borderlessBtn, facing === 'front' && { opacity: 0.25 }]}
+            disabled={facing === 'front'}
             onPress={() => setFlash((f) => (f === 'off' ? 'on' : 'off'))}
           >
-            {flash === 'off' ? (
+            {flash === 'off' || facing === 'front' ? (
               <LightningSlash size={26} color="#FFFFFF" weight="regular" />
             ) : (
               <Lightning size={26} color="#FFFFFF" weight="regular" />
@@ -451,7 +478,7 @@ export default function ScanScreen() {
 
           <TouchableOpacity
             style={styles.borderlessBtn}
-            onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
+            onPress={handleToggleFacing}
             activeOpacity={0.7}
           >
             {facing === 'back' ? (
@@ -461,6 +488,7 @@ export default function ScanScreen() {
             )}
           </TouchableOpacity>
         </View>
+
 
         {/* ─── VIEWFINDER (pan gesture + grid) ─── */}
         <View

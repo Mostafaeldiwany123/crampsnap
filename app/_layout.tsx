@@ -36,13 +36,50 @@ SplashScreen.preventAutoHideAsync();
 function isRunningAsStandalonePWA(): boolean {
   if (Platform.OS !== 'web') return true;
   if (typeof window === 'undefined') return false;
-  return Boolean(
+
+  // 1. Check if launched from PWA start_url parameter
+  const search = window.location.search || '';
+  if (
+    search.includes('source=pwa') ||
+    search.includes('standalone=true') ||
+    search.includes('mode=pwa')
+  ) {
+    try {
+      localStorage.setItem('cramsnap_standalone_active', '1');
+    } catch (_) {}
+    return true;
+  }
+
+  // 2. Check if previously activated in standalone mode
+  try {
+    if (localStorage.getItem('cramsnap_standalone_active') === '1') {
+      return true;
+    }
+  } catch (_) {}
+
+  // 3. Check browser native display-mode media queries
+  const isMatchMedia = Boolean(
     window.matchMedia('(display-mode: standalone)').matches ||
     window.matchMedia('(display-mode: fullscreen)').matches ||
     window.matchMedia('(display-mode: minimal-ui)').matches ||
     ('standalone' in window.navigator && Boolean((window.navigator as any).standalone))
   );
+
+  // 4. Android WebAPK / App referrer
+  const isAppReferrer =
+    (typeof document !== 'undefined' && document.referrer?.includes('android-app://')) ||
+    false;
+
+  if (isMatchMedia || isAppReferrer) {
+    try {
+      localStorage.setItem('cramsnap_standalone_active', '1');
+    } catch (_) {}
+    return true;
+  }
+
+  return false;
 }
+
 
 export default function RootLayout() {
   const [loadedNative, error] = useFonts(
