@@ -35,6 +35,10 @@ export function InstallGate({ onBypass }: InstallGateProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    if (typeof document !== 'undefined') {
+      document.title = 'CramSnap - AI College Notes & Scanner';
+    }
+
     const ua = navigator.userAgent || '';
     const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
     const android = /Android/.test(ua);
@@ -266,20 +270,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+    width: '100%',
   },
   scrollContainer: {
-    minHeight: '100%',
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    paddingVertical: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 36,
+    width: '100%',
   },
   card: {
     width: '100%',
-    maxWidth: 440,
+    maxWidth: 400,
+    alignSelf: 'center',
+    marginHorizontal: 'auto',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 28,
+    padding: 24,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',

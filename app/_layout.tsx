@@ -54,7 +54,8 @@ export default function RootLayout() {
   const loaded = Platform.OS === 'web' ? true : loadedNative;
 
   const [isStandalonePWA, setIsStandalonePWA] = useState<boolean>(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return true;
+    if (Platform.OS !== 'web') return true;
+    if (typeof window === 'undefined') return false;
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true ||
@@ -99,8 +100,8 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <Stack screenOptions={{ headerShown: false, title: 'CramSnap - AI College Notes & Scanner' }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'CramSnap' }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="note/preview" options={{ headerShown: false }} />
       <Stack.Screen name="collection/[id]" options={{ headerShown: false }} />

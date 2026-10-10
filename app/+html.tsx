@@ -12,6 +12,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
 
         <title>CramSnap - AI College Notes & Scanner</title>
         <meta name="description" content="AI Lecture & Document Scanner for College Students" />
+        <script dangerouslySetInnerHTML={{ __html: "document.title = 'CramSnap - AI College Notes & Scanner';" }} />
 
         {/* PWA Settings */}
         <link rel="manifest" href="/manifest.json" />
