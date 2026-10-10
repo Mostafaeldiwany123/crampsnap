@@ -142,6 +142,7 @@ export default function ScanScreen() {
   // Web mouse wheel / trackpad pinch zoom
   const handleWheel = (e: any) => {
     if (Platform.OS === 'web') {
+      if (e?.preventDefault) e.preventDefault();
       const delta = e.deltaY || 0;
       const diff = delta < 0 ? 0.04 : -0.04;
       const nextZoom = Math.min(Math.max(currentZoomRef.current + diff, 0), 1);
@@ -151,6 +152,7 @@ export default function ScanScreen() {
       triggerZoomDisplay(parseFloat(mult.toFixed(1)));
     }
   };
+
 
   const loadLatestPhoto = useCallback(async () => {
     try {
@@ -538,9 +540,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+    ...(Platform.OS === 'web' ? ({ touchAction: 'none' } as any) : {}),
   },
   camera: {
     flex: 1,
+    ...(Platform.OS === 'web' ? ({ touchAction: 'none' } as any) : {}),
   },
   uiOverlay: {
     position: 'absolute',
@@ -550,6 +554,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'column',
     justifyContent: 'space-between',
+    ...(Platform.OS === 'web' ? ({ touchAction: 'none' } as any) : {}),
   },
   flashOverlay: {
     position: 'absolute',
@@ -569,14 +574,15 @@ const styles = StyleSheet.create({
   },
   permTitle: {
     fontSize: 20,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
+    fontFamily: 'Assistant',
+    fontWeight: '400',
     color: '#FFFFFF',
     marginBottom: 8,
   },
   permSub: {
     fontSize: 15,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 22,
@@ -593,7 +599,7 @@ const styles = StyleSheet.create({
   permBtnText: {
     color: '#FFFFFF',
     fontFamily: 'Assistant',
-    fontWeight: '400',
+    fontWeight: '300',
     fontSize: 16,
     letterSpacing: 0.5,
   },
@@ -615,6 +621,7 @@ const styles = StyleSheet.create({
   viewfinder: {
     flex: 1,
     position: 'relative',
+    ...(Platform.OS === 'web' ? ({ touchAction: 'none' } as any) : {}),
   },
   gridOverlay: {
     position: 'absolute',
@@ -656,8 +663,8 @@ const styles = StyleSheet.create({
   centerZoomText: {
     color: '#FFFFFF',
     fontSize: 72,
-    fontFamily: 'AssistantBold',
-    fontWeight: '800',
+    fontFamily: 'Assistant',
+    fontWeight: '300',
     textShadowColor: 'rgba(0,0,0,0.4)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,

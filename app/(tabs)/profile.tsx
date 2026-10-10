@@ -130,10 +130,22 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleResetData = () => {
+  const handleResetData = async () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        'Clear Local Vault: This will permanently delete all saved notes, photos, and AI chat sessions from your device. Are you sure?'
+      );
+      if (confirmed) {
+        await clearAllData();
+        await loadData();
+        window.alert('Local vault cleared successfully.');
+      }
+      return;
+    }
+
     Alert.alert(
       'Clear Local Vault',
-      'This will delete all saved lecture notes and categories from your device. This cannot be undone.',
+      'This will delete all saved lecture notes, photos, and chat history from your device. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -147,6 +159,7 @@ export default function ProfileScreen() {
       ]
     );
   };
+
 
   const photoCount = notes.filter((n) => !!n.image_url).length;
   const selectedModelData = AVAILABLE_MODELS.find(m => m.id === selectedModel) || AVAILABLE_MODELS[0];
@@ -253,7 +266,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.versionText}>College Scanner v1.0.0</Text>
+        <Text style={styles.versionText}>CramSnap v1.0.0</Text>
       </ScrollView>
 
       {/* Model Selection Modal */}
@@ -311,7 +324,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 34,
     fontFamily: 'Assistant',
-    fontWeight: '700',
+    fontWeight: '300',
     color: '#0F172A',
     letterSpacing: -0.5,
   },
@@ -335,12 +348,13 @@ const styles = StyleSheet.create({
   statVal: {
     fontSize: 24,
     fontFamily: 'Assistant',
-    fontWeight: '700',
+    fontWeight: '400',
     color: '#0F172A',
   },
   statLabel: {
     fontSize: 12,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#64748B',
     marginTop: 4,
   },
@@ -348,7 +362,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 12,
     fontFamily: 'Assistant',
-    fontWeight: '600',
+    fontWeight: '400',
     color: '#64748B',
     marginLeft: 16,
     marginBottom: 8,
@@ -387,12 +401,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Assistant',
     color: '#0F172A',
-    fontWeight: '500',
+    fontWeight: '400',
   },
   cardRowValue: {
     fontSize: 15,
     fontFamily: 'Assistant',
     color: '#64748B',
+    fontWeight: '300',
     paddingRight: 8,
     maxWidth: '50%',
     textAlign: 'right',
@@ -402,6 +417,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontSize: 15,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#64748B',
     paddingVertical: 12,
     paddingHorizontal: 8,
@@ -409,6 +425,7 @@ const styles = StyleSheet.create({
   cardFooterText: {
     fontSize: 12,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#94A3B8',
     marginLeft: 12,
     marginBottom: 32,
@@ -418,6 +435,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#CBD5E1',
     marginTop: 40,
   },
@@ -447,13 +465,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontFamily: 'Assistant',
-    fontWeight: '700',
+    fontWeight: '400',
     color: '#0F172A',
   },
   modalClose: {
     fontSize: 16,
     fontFamily: 'Assistant',
-    fontWeight: '600',
+    fontWeight: '400',
     color: '#3B82F6',
   },
   modalOption: {
@@ -474,17 +492,19 @@ const styles = StyleSheet.create({
   modalOptionTitle: {
     fontSize: 16,
     fontFamily: 'Assistant',
-    fontWeight: '600',
+    fontWeight: '400',
     color: '#0F172A',
     marginBottom: 2,
   },
   modalOptionTitleSelected: {
     color: '#3B82F6',
-    fontWeight: '700',
+    fontWeight: '500',
   },
   modalOptionSub: {
     fontSize: 13,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#64748B',
   },
 });
+

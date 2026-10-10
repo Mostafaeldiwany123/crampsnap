@@ -101,7 +101,7 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerShown: false, title: 'CramSnap - AI College Notes & Scanner' }}>
+    <Stack screenOptions={{ headerShown: false, title: 'CramSnap' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'CramSnap' }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="note/preview" options={{ headerShown: false }} />

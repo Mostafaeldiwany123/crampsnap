@@ -130,7 +130,7 @@ function inlineFmt(text: string): React.ReactNode[] {
 }
 
 const md = StyleSheet.create({
-  h1: { fontSize: 17, fontWeight: '700', color: '#0F172A', marginTop: 8, marginBottom: 3 },
+  h1: { fontSize: 17, fontFamily: 'Assistant', fontWeight: '400', color: '#0F172A', marginTop: 8, marginBottom: 3 },
   h2: { fontSize: 15, fontWeight: '700', color: '#0F172A', marginTop: 6, marginBottom: 2 },
   h3: { fontSize: 14, fontWeight: '600', color: '#374151', marginTop: 4, marginBottom: 2 },
   body: { fontSize: 15, color: '#1E293B', lineHeight: 22, fontFamily: 'Assistant', marginBottom: 1 },
@@ -247,28 +247,32 @@ export default function LibraryAgentScreen() {
   const flatListRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
 
+  const loadStoredSessions = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(CHAT_SESSIONS_KEY);
+      if (raw) {
+        const saved: ChatSession[] = JSON.parse(raw);
+        if (Array.isArray(saved)) {
+          saved.sort((a, b) => b.updatedAt - a.updatedAt);
+          setSessions(saved);
+          setCurrentSessionId(prev => {
+            if (prev && saved.some(s => s.id === prev)) return prev;
+            return saved.length > 0 ? saved[0].id : null;
+          });
+        }
+      }
+    } catch (_) {}
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       getNotes().then(fetched => {
         if (fetched) setNotes(fetched);
       });
-    }, [])
+      loadStoredSessions();
+    }, [loadStoredSessions])
   );
 
-  useEffect(() => {
-    AsyncStorage.getItem(CHAT_SESSIONS_KEY).then(raw => {
-      if (raw) {
-        try {
-          const saved: ChatSession[] = JSON.parse(raw);
-          if (Array.isArray(saved)) {
-            saved.sort((a, b) => b.updatedAt - a.updatedAt);
-            setSessions(saved);
-            if (saved.length > 0) setCurrentSessionId(saved[0].id);
-          }
-        } catch (_) {}
-      }
-    });
-  }, []);
 
   const saveSession = useCallback(async (sessionId: string, newHistory: ChatMessage[]) => {
     setSessions(prev => {
@@ -341,6 +345,26 @@ export default function LibraryAgentScreen() {
   };
 
   const handleDeleteSession = (sessionIdToDelete: string) => {
+    const doDelete = () => {
+      setSessions(prev => {
+        const updated = prev.filter(s => s.id !== sessionIdToDelete);
+        AsyncStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(updated));
+        return updated;
+      });
+
+      if (currentSessionId === sessionIdToDelete) {
+        setCurrentSessionId(null);
+        setInputText('');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete Conversation: Are you sure you want to remove this conversation?')) {
+        doDelete();
+      }
+      return;
+    }
+
     Alert.alert(
       'Delete Conversation',
       'Are you sure you want to remove this conversation?',
@@ -349,22 +373,12 @@ export default function LibraryAgentScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setSessions(prev => {
-              const updated = prev.filter(s => s.id !== sessionIdToDelete);
-              AsyncStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(updated));
-              return updated;
-            });
-
-            if (currentSessionId === sessionIdToDelete) {
-              setCurrentSessionId(null);
-              setInputText('');
-            }
-          },
+          onPress: doDelete,
         },
       ]
     );
   };
+
 
   const currentHistory = currentSessionId ? sessions.find(s => s.id === currentSessionId)?.messages || [] : [];
   const isEmpty = currentHistory.length === 0 && !isLoading;
@@ -562,11 +576,11 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { fontSize: 16, fontFamily: 'AssistantBold', fontWeight: '700', color: '#0F172A', marginLeft: 44 },
+  headerTitle: { fontSize: 16, fontFamily: 'Assistant', fontWeight: '400', color: '#0F172A', marginLeft: 44 },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   emptyIcon: { width: 68, height: 68, borderRadius: 16, marginBottom: 20 },
-  emptyTitle: { fontSize: 23, fontFamily: 'AssistantBold', fontWeight: '700', color: '#0F172A', textAlign: 'center', lineHeight: 30 },
-  emptySub: { fontSize: 14, fontFamily: 'Assistant', color: '#94A3B8', marginTop: 10, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: 23, fontFamily: 'Assistant', fontWeight: '400', color: '#0F172A', textAlign: 'center', lineHeight: 30 },
+  emptySub: { fontSize: 14, fontFamily: 'Assistant', fontWeight: '300', color: '#94A3B8', marginTop: 10, textAlign: 'center', lineHeight: 20 },
   list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 },
   userRow: { alignItems: 'flex-end', marginBottom: 12 },
   userBubble: {
@@ -577,7 +591,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     maxWidth: SCREEN_WIDTH * 0.78,
   },
-  userText: { fontSize: 15, fontFamily: 'Assistant', color: '#0F172A', lineHeight: 21 },
+  userText: { fontSize: 15, fontFamily: 'Assistant', fontWeight: '300', color: '#0F172A', lineHeight: 21 },
   aiRow: { alignItems: 'flex-start', marginBottom: 16, paddingHorizontal: 16, maxWidth: '100%' },
   loadingRow: {
     paddingHorizontal: 16,
@@ -587,6 +601,7 @@ const styles = StyleSheet.create({
   loadingTextSimple: {
     fontSize: 14,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#94A3B8',
   },
   copyBtn: { marginTop: 4, alignSelf: 'flex-start' },
@@ -601,9 +616,9 @@ const styles = StyleSheet.create({
   },
   noteCardImg: { width: '100%', height: 170 },
   noteCardFooter: { paddingHorizontal: 12, paddingVertical: 8 },
-  noteCardTitle: { fontSize: 13, fontFamily: 'AssistantBold', fontWeight: '600', color: '#374151' },
+  noteCardTitle: { fontSize: 13, fontFamily: 'Assistant', fontWeight: '400', color: '#374151' },
   noteMissing: { width: 160, height: 50, borderRadius: 10, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginVertical: 8 },
-  noteMissingText: { fontSize: 13, fontFamily: 'Assistant', color: '#94A3B8', fontStyle: 'italic' },
+  noteMissingText: { fontSize: 13, fontFamily: 'Assistant', fontWeight: '300', color: '#94A3B8', fontStyle: 'italic' },
   inputArea: {
     paddingHorizontal: 12,
     paddingTop: 8,
@@ -627,6 +642,7 @@ const styles = StyleSheet.create({
     maxHeight: 110,
     fontSize: 15,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#0F172A',
     paddingTop: 7,
     paddingBottom: 7,
@@ -657,8 +673,8 @@ const styles = StyleSheet.create({
   },
   historyTitleFull: {
     fontSize: 20,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
+    fontFamily: 'Assistant',
+    fontWeight: '400',
     color: '#0F172A',
   },
   historyCountBadge: {
@@ -669,8 +685,8 @@ const styles = StyleSheet.create({
   },
   historyCountText: {
     fontSize: 12,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
+    fontFamily: 'Assistant',
+    fontWeight: '400',
     color: '#64748B',
   },
   historyList: {
@@ -723,14 +739,14 @@ const styles = StyleSheet.create({
   },
   historyCardTitle: {
     fontSize: 15,
-    fontFamily: 'AssistantBold',
-    fontWeight: '600',
+    fontFamily: 'Assistant',
+    fontWeight: '400',
     color: '#1E293B',
     flex: 1,
   },
   historyCardTitleActive: {
     color: '#0F172A',
-    fontWeight: '700',
+    fontWeight: '500',
   },
   currentBadge: {
     backgroundColor: '#0F172A',
@@ -740,19 +756,21 @@ const styles = StyleSheet.create({
   },
   currentBadgeText: {
     fontSize: 10,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
+    fontFamily: 'Assistant',
+    fontWeight: '400',
     color: '#FFFFFF',
   },
   historyCardSnippet: {
     fontSize: 13,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#64748B',
     marginBottom: 4,
   },
   historyCardTime: {
     fontSize: 11,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#94A3B8',
   },
   historyDeleteBtn: {
@@ -780,14 +798,15 @@ const styles = StyleSheet.create({
   },
   historyEmptyTitle: {
     fontSize: 18,
-    fontFamily: 'AssistantBold',
-    fontWeight: '700',
+    fontFamily: 'Assistant',
+    fontWeight: '400',
     color: '#0F172A',
     marginBottom: 6,
   },
   historyEmptyText: {
     fontSize: 14,
     fontFamily: 'Assistant',
+    fontWeight: '300',
     color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 20,
@@ -809,8 +828,8 @@ const styles = StyleSheet.create({
   },
   historyNewBtnTextFull: {
     fontSize: 15,
-    fontFamily: 'AssistantBold',
-    fontWeight: '600',
+    fontFamily: 'Assistant',
+    fontWeight: '400',
     color: '#FFFFFF',
   },
   mathContainer: {
@@ -818,3 +837,4 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
 });
+

@@ -1,22 +1,41 @@
 {
   "short_name": "CramSnap",
-  "name": "CramSnap - AI College Notes & Scanner",
+  "name": "CramSnap",
   "description": "AI Lecture & Document Scanner for College Students",
   "icons": [
     {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "64x64",
+      "purpose": "any"
+    },
+    {
       "src": "/icon.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     },
     {
       "src": "/icon.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
   "start_url": "/",
-  "background_color": "#0F172A",
+  "background_color": "#FFFFFF",
   "theme_color": "#4F46E5",
   "display": "standalone",
   "orientation": "portrait",

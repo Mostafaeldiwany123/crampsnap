@@ -31,7 +31,7 @@ export function InstallGate() {
     if (typeof window === 'undefined') return;
 
     if (typeof document !== 'undefined') {
-      document.title = 'CramSnap - AI College Notes & Scanner';
+      document.title = 'CramSnap';
     }
 
     const ua = navigator.userAgent || '';
@@ -282,13 +282,22 @@ const styles = StyleSheet.create({
   },
   iconWrapper: {
     marginBottom: 16,
-  },
-  appIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 84,
+    height: 84,
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  appIcon: {
+    width: '100%',
+    height: '100%',
   },
   badge: {
     backgroundColor: '#EEF2FF',

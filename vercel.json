@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx expo export -p web",
+  "buildCommand": "npx expo export -p web && node -e \"const fs=require('fs');fs.copyFileSync('public/manifest.json', 'dist/manifest.json');\"",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [

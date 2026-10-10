@@ -116,3 +116,25 @@ export async function deleteWebImage(key: string): Promise<void> {
     console.warn('Failed to delete image from IndexedDB:', error);
   }
 }
+
+/**
+ * Clears all stored images from IndexedDB.
+ */
+export async function clearAllWebImages(): Promise<void> {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.indexedDB) return;
+
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const clearRequest = store.clear();
+
+      clearRequest.onsuccess = () => resolve();
+      clearRequest.onerror = (e: any) => reject(e.target.error);
+    });
+  } catch (error) {
+    console.warn('Failed to clear IndexedDB:', error);
+  }
+}
+

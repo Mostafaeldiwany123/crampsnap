@@ -212,12 +212,17 @@ export const getStorageUsage = async (): Promise<{ bytes: number; formatted: str
   }
 };
 
+import { clearAllWebImages } from '@/services/imageStorage';
+
 // Clear all local data completely
 export const clearAllData = async () => {
   try {
     await AsyncStorage.removeItem(NOTES_KEY);
     await AsyncStorage.removeItem(CATEGORIES_KEY);
+    await AsyncStorage.removeItem('library_agent_chat_sessions_v1');
+    await clearAllWebImages();
   } catch (error) {
     console.error('Error clearing all data:', error);
   }
 };
+
