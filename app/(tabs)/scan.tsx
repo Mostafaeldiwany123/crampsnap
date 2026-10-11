@@ -163,6 +163,10 @@ export default function ScanScreen() {
     setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
   };
 
+  const handleCameraReady = useCallback(() => {
+    cameraReadyRef.current = true;
+  }, []);
+
   const loadLatestPhoto = useCallback(async () => {
 
     try {
@@ -421,9 +425,7 @@ export default function ScanScreen() {
           enableTorch={facing === 'back' && flash === 'on'}
           zoom={zoom}
           zoomMultiplier={zoomMultiplier}
-          onCameraReady={() => {
-            cameraReadyRef.current = true;
-          }}
+          onCameraReady={handleCameraReady}
         />
       ) : (
         <CameraView
@@ -435,9 +437,7 @@ export default function ScanScreen() {
           enableTorch={facing === 'back' && flash === 'on'}
           zoom={facing === 'front' ? 0 : zoom}
           autofocus="on"
-          onCameraReady={() => {
-            cameraReadyRef.current = true;
-          }}
+          onCameraReady={handleCameraReady}
         />
       )}
 

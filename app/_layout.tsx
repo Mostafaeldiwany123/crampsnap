@@ -35,54 +35,28 @@ SplashScreen.preventAutoHideAsync();
 
 function isRunningAsStandalonePWA(): boolean {
   if (Platform.OS !== 'web') return true;
-  if (typeof window === 'undefined') return true;
+  if (typeof window === 'undefined') return false;
 
-  // 0. Check immediate class added synchronously by head script
-  if (typeof document !== 'undefined' && document.documentElement.classList.contains('is-pwa-standalone')) {
-    return true;
-  }
-
-  // 1. Check if launched from PWA start_url parameter
-  const search = window.location.search || '';
-
-  if (
-    search.includes('source=pwa') ||
-    search.includes('standalone=true') ||
-    search.includes('mode=pwa')
-  ) {
-    try {
-      localStorage.setItem('cramsnap_standalone_active', '1');
-    } catch (_) {}
-    return true;
-  }
-
-  // 2. Check if previously activated in standalone mode
+  // Clean up any stale localStorage tokens from previous versions
   try {
-    if (localStorage.getItem('cramsnap_standalone_active') === '1') {
-      return true;
-    }
+    localStorage.removeItem('cramsnap_standalone_active');
   } catch (_) {}
 
-  // 3. Check browser native display-mode media queries
-  const isMatchMedia = Boolean(
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.matchMedia('(display-mode: fullscreen)').matches ||
-    window.matchMedia('(display-mode: minimal-ui)').matches ||
-    ('standalone' in window.navigator && Boolean((window.navigator as any).standalone))
-  );
-
-  // 4. Android WebAPK / App referrer
-  const isAppReferrer =
-    (typeof document !== 'undefined' && document.referrer?.includes('android-app://')) ||
-    false;
-
-  if (isMatchMedia || isAppReferrer) {
-    try {
-      localStorage.setItem('cramsnap_standalone_active', '1');
-    } catch (_) {}
+  // 1. Check iOS standalone web app mode (added to home screen)
+  if ((window.navigator as any)?.standalone === true) {
     return true;
   }
 
+  // 2. Check native display-mode media queries (PWA window, WebAPK)
+  if (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches
+  ) {
+    return true;
+  }
+
+  // If opened inside a regular web browser (even if installed on phone), show InstallGate
   return false;
 }
 

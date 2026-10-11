@@ -44,21 +44,19 @@ export default function Root({ children }: { children: React.ReactNode }) {
               document.title = 'CramSnap';
               (function() {
                 if (typeof window === 'undefined') return;
+                try {
+                  localStorage.removeItem('cramsnap_standalone_active');
+                } catch(e) {}
+
                 var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                                    window.matchMedia('(display-mode: fullscreen)').matches ||
                                    window.matchMedia('(display-mode: minimal-ui)').matches ||
-                                   (window.navigator.standalone === true) ||
-                                   (document.referrer && document.referrer.indexOf('android-app://') !== -1) ||
-                                   (window.location.search.indexOf('source=pwa') !== -1) ||
-                                   (window.location.search.indexOf('standalone=true') !== -1);
-                try {
-                  if (isStandalone || localStorage.getItem('cramsnap_standalone_active') === '1') {
-                    document.documentElement.classList.add('is-pwa-standalone');
-                    localStorage.setItem('cramsnap_standalone_active', '1');
-                  } else {
-                    document.documentElement.classList.add('is-browser');
-                  }
-                } catch(e) {}
+                                   (window.navigator && window.navigator.standalone === true);
+                if (isStandalone) {
+                  document.documentElement.classList.add('is-pwa-standalone');
+                } else {
+                  document.documentElement.classList.add('is-browser');
+                }
 
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {

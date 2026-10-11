@@ -54,10 +54,6 @@ export function InstallGate() {
     window.addEventListener('appinstalled', () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
-      try {
-        localStorage.setItem('cramsnap_standalone_active', '1');
-      } catch (_) {}
-      window.location.href = '/?source=pwa';
     });
 
     return () => {
@@ -131,19 +127,8 @@ export function InstallGate() {
           <View style={styles.successBox}>
             <CheckCircle size={20} color="#059669" weight="regular" />
             <Text style={styles.successText}>
-              CramSnap is installed! Tap below or open from your home screen.
+              CramSnap is installed! Please open CramSnap from your phone's home screen.
             </Text>
-            <TouchableOpacity
-              style={styles.openNowBtn}
-              onPress={() => {
-                try {
-                  localStorage.setItem('cramsnap_standalone_active', '1');
-                } catch (_) {}
-                window.location.href = '/?source=pwa';
-              }}
-            >
-              <Text style={styles.openNowBtnText}>Open CramSnap</Text>
-            </TouchableOpacity>
           </View>
         )}
 
