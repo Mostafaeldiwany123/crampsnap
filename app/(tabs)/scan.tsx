@@ -36,10 +36,12 @@ import { loadShutterSound, playShutterSound } from '@/services/audio';
 import ScannerOverlay from '@/components/ScannerOverlay';
 import BatchSelector from '@/components/BatchSelector';
 import { saveWebImage } from '@/services/imageStorage';
+import { WebCamera } from '@/components/WebCamera';
 
 const { width } = Dimensions.get('window');
 
 export default function ScanScreen() {
+
   const [permission, requestPermission] = useCameraPermissions();
   const [lastPhotoUri, setLastPhotoUri] = useState<string | null>(null);
 
@@ -59,7 +61,7 @@ export default function ScanScreen() {
   const shutterScale = useRef(new Animated.Value(1)).current;
   const thumbScale = useRef(new Animated.Value(1)).current;
 
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<any>(null);
   const cameraReadyRef = useRef(false);
   const captureInFlightRef = useRef(false);
   const isBurstingRef = useRef(false);
@@ -154,27 +156,10 @@ export default function ScanScreen() {
   };
 
   const handleToggleFacing = () => {
-    // 1. Reset zoom and torch constraints before flipping
     setZoom(0);
     currentZoomRef.current = 0;
     setZoomMultiplier(1.0);
     setFlash('off');
-
-    // 2. On web, explicitly release previous media tracks so the mobile camera hardware releases the sensor
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      try {
-        const videos = document.querySelectorAll('video');
-        videos.forEach((v: any) => {
-          if (v.srcObject && typeof v.srcObject.getTracks === 'function') {
-            v.srcObject.getTracks().forEach((track: any) => track.stop());
-            v.srcObject = null;
-          }
-        });
-      } catch (e) {
-        console.warn('Error releasing web camera tracks:', e);
-      }
-    }
-
     setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
   };
 
@@ -427,20 +412,35 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ─── LIVE CAMERA (no children to avoid the warning) ─── */}
-      <CameraView
-        key={`camera-${facing}`}
-        style={styles.camera}
-        ref={cameraRef}
-        facing={facing}
-        flash={facing === 'front' ? 'off' : flash}
-        enableTorch={facing === 'back' && flash === 'on'}
-        zoom={facing === 'front' ? 0 : zoom}
-        autofocus="on"
-        onCameraReady={() => {
-          cameraReadyRef.current = true;
-        }}
-      />
+      {/* ─── LIVE CAMERA (WebCamera on web, CameraView on native) ─── */}
+      {Platform.OS === 'web' ? (
+        <WebCamera
+          ref={cameraRef}
+          facing={facing}
+          flash={flash}
+          enableTorch={facing === 'back' && flash === 'on'}
+          zoom={zoom}
+          zoomMultiplier={zoomMultiplier}
+          onCameraReady={() => {
+            cameraReadyRef.current = true;
+          }}
+        />
+      ) : (
+        <CameraView
+          key={`camera-${facing}`}
+          style={styles.camera}
+          ref={cameraRef}
+          facing={facing}
+          flash={facing === 'front' ? 'off' : flash}
+          enableTorch={facing === 'back' && flash === 'on'}
+          zoom={facing === 'front' ? 0 : zoom}
+          autofocus="on"
+          onCameraReady={() => {
+            cameraReadyRef.current = true;
+          }}
+        />
+      )}
+
 
       {/* ─── UI OVERLAY (absolutely positioned on top of CameraView) ─── */}
       <View style={styles.uiOverlay} pointerEvents="box-none">

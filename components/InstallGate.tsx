@@ -84,7 +84,12 @@ export function InstallGate() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.container}>
+    <ScrollView
+      nativeID="cramsnap-install-gate"
+      {...({ 'data-install-gate': 'true' } as any)}
+      contentContainerStyle={styles.scrollContainer}
+      style={styles.container}
+    >
       <View style={styles.card}>
         {/* App Icon (Clean compressed logo, instant load) */}
         <View style={styles.iconWrapper}>

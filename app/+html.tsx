@@ -37,12 +37,29 @@ export default function Root({ children }: { children: React.ReactNode }) {
           rel="stylesheet"
         />
 
-        {/* Register Service Worker for PWA & Prevent Browser Page Pinch-Zoom on Camera */}
+        {/* Register Service Worker for PWA, Instant Standalone Detection & Gesture Suppression */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               document.title = 'CramSnap';
-              if (typeof window !== 'undefined') {
+              (function() {
+                if (typeof window === 'undefined') return;
+                var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                                   window.matchMedia('(display-mode: fullscreen)').matches ||
+                                   window.matchMedia('(display-mode: minimal-ui)').matches ||
+                                   (window.navigator.standalone === true) ||
+                                   (document.referrer && document.referrer.indexOf('android-app://') !== -1) ||
+                                   (window.location.search.indexOf('source=pwa') !== -1) ||
+                                   (window.location.search.indexOf('standalone=true') !== -1);
+                try {
+                  if (isStandalone || localStorage.getItem('cramsnap_standalone_active') === '1') {
+                    document.documentElement.classList.add('is-pwa-standalone');
+                    localStorage.setItem('cramsnap_standalone_active', '1');
+                  } else {
+                    document.documentElement.classList.add('is-browser');
+                  }
+                } catch(e) {}
+
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
                     navigator.serviceWorker.register('/sw.js').catch(function(err) {
@@ -64,7 +81,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
                     e.preventDefault();
                   }
                 }, { passive: false });
-              }
+              })();
             `,
           }}
         />
@@ -88,6 +105,10 @@ body, p, span, input, textarea, select {
 b, strong, h1, h2, h3, h4, h5, h6, [style*="bold"], [style*="700"], [style*="800"], .header-title {
   font-family: 'Assistant', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   font-weight: 800 !important;
+}
+html.is-pwa-standalone #cramsnap-install-gate,
+html.is-pwa-standalone [data-install-gate="true"] {
+  display: none !important;
 }
 html, body, #root {
   width: 100%;

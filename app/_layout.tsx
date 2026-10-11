@@ -35,10 +35,16 @@ SplashScreen.preventAutoHideAsync();
 
 function isRunningAsStandalonePWA(): boolean {
   if (Platform.OS !== 'web') return true;
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return true;
+
+  // 0. Check immediate class added synchronously by head script
+  if (typeof document !== 'undefined' && document.documentElement.classList.contains('is-pwa-standalone')) {
+    return true;
+  }
 
   // 1. Check if launched from PWA start_url parameter
   const search = window.location.search || '';
+
   if (
     search.includes('source=pwa') ||
     search.includes('standalone=true') ||
